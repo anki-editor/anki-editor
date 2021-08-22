@@ -1,40 +1,40 @@
 [[http://melpa.org/#/anki-editor][file:http://melpa.org/packages/anki-editor-badge.svg]]
 
-anki-editor -- Emacs minor mode for making Anki cards with Org
+anki-editor -- An Emacs minor mode for making Anki cards with Org
 
 /Since I'm not a native English speaker, feel free to correct me if
-there were any ambiguity or grammatical mistakes ;-)/
+there are any ambiguity or grammatical mistakes ;-)/
 
 * Installation
 
   *Requirements*
-  - [[https://github.com/FooSoft/anki-connect#installation][anki-connect]],
-    an Anki add-on required by this package to interact with Anki.
+  - [[https://github.com/FooSoft/anki-connect#installation][AnkiConnect]],
+    an Anki add-on required by this package to interact with Anki
   - curl
 
-  If you have [[http://melpa.org/][MELPA]] in your =package-archives=,
-  just =M-x package-install RET anki-editor RET=, or install it
+  If you have [[http://melpa.org/][MELPA]] in your ~package-archives~,
+  just ~M-x package-install RET anki-editor RET~, or install it
   manually by downloading and visiting [[./anki-editor.el][anki-editor.el]] in your
-  emacs buffer, and =M-x package-install-from-buffer RET=.
+  emacs buffer, and ~M-x package-install-from-buffer RET~.
 
 * Usage
 
 ** The Layout of Notes
 
-   Now you can compose Anki notes in Org syntax, e.g. lists, code
-   examples, tables, embedded latex, when being submitted to Anki,
-   they will be converted to HTML by Org-mode's HTML backend with
-   specific markers (e.g. latex) translated to Anki style.
+   The power of this mode comes from the builtin HTML export backend
+   provided by Org, which enables you to use almost all the Org
+   constructs for writing Anki notes: lists, code blocks, tables,
+   latex and so on.
 
-   The structure of a note is as follow, which is inspired by
-   =org-drill=. More examples can be found in [[./examples.org][examples.org]].
+   The structure of a note is as follows, which is inspired by
+   ~org-drill~.  Check out [[./examples.org][examples.org]] for more examples.
 
    #+BEGIN_SRC org
-     ,* Idiom                                                        :vocab:idioms:
+     ,* Raining                                                      :vocab:idioms:
        :PROPERTIES:
        :ANKI_DECK: English
        :ANKI_NOTE_TYPE: Basic (and reversed card)
-       :ANKI_TAGS: languages european_languages
+       :ANKI_TAGS: vocab idioms
        :END:
      ,** Front
         (it's) raining cats and dogs
@@ -42,47 +42,114 @@ there were any ambiguity or grammatical mistakes ;-)/
         it's raining very hard
    #+END_SRC
 
-   - An Anki note is an Org entry with =ANKI_NOTE_TYPE= property
-   - Anki tags can be set in two ways
-     1. With "ANKI_TAGS" property, multiple tags are separated with space
-     2. With Org tags [fn:1], this could be turned off if you would like to keep Org tags separated from Anki tags
-   - Other necessary information (e.g. deck, note type) of a note is
-     put in the property drawer of the entry
-     - As the value of =ANKI_DECK= is retrieved with inheritance, you
-       don't have to set it per note, instead, you could create a deck
-       entry with this property set and put note entries under it, or
-       set it per file by ~#+PROPERTY: ANKI_DECK YourDeck~
-   - Child entries of a note entry are fields
+   - Anki deck is provided by ~ANKI_DECK~ property.  This property is
+     retrieved with inheritance, that is to say, it can be put in any
+     ancestor entries or at top of the file by ~#+PROPERTY: ANKI_DECK
+     DeckName~.
+   - ~ANKI_NOTE_TYPE~ property is to specify the Anki note type of a
+     note and is also required for identifying an Anki note entry.
+   - Anki tags can be provided in two ways:
+     1. With a ~ANKI_TAGS~ property, multiple tags are separated by spaces
+     2. With Org tags [fn:1], this could be turned off if you would
+        like to keep Org tags separated from Anki tags
+   - Child entries of a note entry are fields.
+
+   Typing all these information by hand could be inefficient and prone
+   to errors, so this package provides an interactive command
+   ~anki-editor-insert-note~ to help with this and hooks up
+   auto-completions for decks, note types and tags etc.
 
 ** Commands
 
-   | Command                            | Brief Description                                                                    |
-   |------------------------------------+--------------------------------------------------------------------------------------|
-   | anki-editor-push-notes             | Push notes to Anki. Additional arguments can be used to restrict the range of notes. |
-   | anki-editor-retry-failure-notes    | Same as above, except that it only pushes notes that have =ANKI_FAILURE_REASON=.     |
-   | anki-editor-insert-note            | Insert a note entry like =M-RET=, interactively.                                     |
-   | anki-editor-cloze-region           | Create a cloze deletion from region.                                                 |
-   | anki-editor-export-subtree-to-html | Export the subtree at point to HTML.                                                 |
-   | anki-editor-convert-region-to-html | Convert and replace region to HTML.                                                  |
-
-** Functions
-
-   | Name                         | Description                                                |
-   |------------------------------+------------------------------------------------------------|
-   | anki-editor-map-note-entries | Simple wrapper that calls =org-map-entries=.               |
-   | anki-editor-note-at-point    | Construct an alist representing a note from current entry. |
+   | Command                            | Description                                                                                                                    |
+   |------------------------------------+--------------------------------------------------------------------------------------------------------------------------------|
+   | anki-editor-mode                   | Toggle this minor mode.                                                                                                        |
+   | anki-editor-push-notes             | Push notes to Anki. Additional arguments can be used to restrict the range of notes.                                           |
+   | anki-editor-push-new-notes         | Similar to ~anki-editor-push-notes~, but push those that are without ~ANKI_NOTE_ID~.                                           |
+   | anki-editor-retry-failed-notes     | Similar to ~anki-editor-push-notes~, except that it only pushes notes with ~ANKI_FAILURE_REASON~.                              |
+   | anki-editor-insert-note            | Insert a note entry like ~M-RET~, interactively.  When note heading is not provided or is blank, it's used as the first field. |
+   | anki-editor-delete-notes           | Delete notes or the note at point.                                                                                             |
+   | anki-editor-cloze-dwim             | Cloze current active region or a word the under the cursor.                                                                    |
+   | anki-editor-export-subtree-to-html | Export the subtree at point to HTML.                                                                                           |
+   | anki-editor-convert-region-to-html | Convert and replace region to HTML.                                                                                            |
+   | anki-editor-api-check              | Check if correct version of AnkiConnect is running.                                                                            |
+   | anki-editor-sync-collections       | Synchronize your local anki collection.                                                                                        |
+   | anki-editor-gui-browse             | Open Anki Browser with a query for current note or deck.                                                                       |
+   | anki-editor-gui-add-cards          | Open Anki Add Cards dialog with presets from current note entry.                                                               |
 
 ** Variables
 
    | Name                                          | Default Value          | Description                                                                                              |
    |-----------------------------------------------+------------------------+----------------------------------------------------------------------------------------------------------|
-   | anki-editor-anki-connect-listening-address    | "127.0.0.1"            | The network address AnkiConnect is listening.                                                            |
-   | anki-editor-anki-connect-listening-port       | "8765"                 | The port number AnkiConnect is listening.                                                                |
-   | anki-editor-break-consecutive-braces-in-latex | nil                    | If non-nil, consecutive `}' will be automatically separated by spaces to prevent early-closing of cloze. |
-   | anki-editor-create-decks                      | nil                    | If non-nil, creates deck before creating a note.                                                         |
+   | anki-editor-api-host                          | "127.0.0.1"            | The network address AnkiConnect is listening.                                                            |
+   | anki-editor-api-port                          | "8765"                 | The port number AnkiConnect is listening.                                                                |
+   | anki-editor-break-consecutive-braces-in-latex | nil                    | If non-nil, consecutive "}" will be automatically separated by spaces to prevent early-closing of cloze. |
    | anki-editor-ignored-org-tags                  | '("export" "noexport") | A list of Org tags that are ignored when constructing notes form entries.                                |
    | anki-editor-org-tags-as-anki-tags             | t                      | If nil, tags of entries wont't be counted as Anki tags.                                                  |
    | anki-editor-protected-tags                    | '("marked" "leech")    | A list of tags that won't be deleted from Anki even though they're absent in Org entries.                |
+   | anki-editor-latex-style                       | builtin                | The style of latex to translate into.                                                                    |
+   | anki-editor-include-default-style             | t                      | Wheter or not to include `org-html-style-default' when using `anki-editor-copy-styles'.                  |
+   | anki-editor-html-head                         | nil                    | Additional html tags to append to card stylings when using `anki-editor-copy-styles'.                    |
+   | anki-editor-note-match                        | nil                    | Additional matching string for mapping through anki note headings.                                       |
+
+** Functions and Macros
+
+*** anki-editor-map-note-entries
+
+    Simple wrapper that calls ~org-map-entries~ with
+    ~&ANKI_NOTE_TYPE<>\"\"~ appended to MATCH.
+
+*** anki-editor-api-call
+
+    Invoke AnkiConnect with ACTION and PARAMS.
+
+*** anki-editor-api-call-result
+
+    Calls above, returns result field or raise an error.
+
+*** anki-editor-api-with-multi
+
+    Used in combination with ~anki-editor-api-enqueue~ to queue
+    multiple api calls and combine them into one 'multi' call at the
+    end, return the results of these calls in the same order.
+
+    Usage:
+    #+begin_src elisp
+      (cl-destructuring-bind (decks models tags notes)
+          (anki-editor-api-with-multi
+           ;; The following api calls will be combined into one 'multi' call.
+           (anki-editor-api-enqueue 'deckNames)
+           (anki-editor-api-enqueue 'modelNames)
+           (anki-editor-api-enqueue 'getTags)
+           (anki-editor-api-enqueue 'findNotes :query "deck:Default"))
+        (message (concat "decks: %S\n"
+                         "models: %S\n"
+                         "tags: %S\n"
+                         "notes: %S")
+                 decks models tags notes))
+    #+end_src
+
+*** anki-editor-api-enqueue
+
+    Like ~anki-editor-api-call~, but is only used in combination with
+    ~anki-editor-api-with-multi~.  Instead of sending the request
+    directly, it simply queues the request.
+
+*** anki-editor-note-at-point
+
+    Make a note struct from current entry.
+
+*** anki-editor-find-notes
+
+    Find notes with QUERY.
+
+*** anki-editor-copy-styles
+
+    Copy `org-html-style-default' and `anki-editor-html-head' to Anki card stylings.
+
+*** anki-editor-remove-styles
+
+    Remove from card stylings html tags generated by this mode.
 
 * Limitations
 
@@ -94,44 +161,9 @@ there were any ambiguity or grammatical mistakes ;-)/
 
 ** Working with Anki add-ons
 
-   This package may not work well when you are using certain Anki
-   add-ons especially those who extend the builtin Anki note editor to
+   This package might not work well with certain Anki add-ons
+   especially those who extend the builtin Anki note editor to
    automatically fill note field content (e.g. ~Add note id~).
-
-* Troubleshooting
-
-  In case of a failed operation and this package doesn't provide much
-  useful information, especially for note creation, don't be
-  frustrated, see below for some hints.
-
-  1. Decks don't exist in Anki. This package by default doesn't create
-     decks for you, when trying out this package with ~examples.org~,
-     you might find that every single note creation fails, simply
-     because they're fake decks that might not be in your Anki
-     collection. If you'd like it to automatically create missing
-     decks, set ~anki-editor-create-decks~ to ~t~.
-
-  2. Note is counted as a duplicate. From [[https://apps.ankiweb.net/docs/manual.html#adding-cards-and-notes][Anki docs]]
-     #+BEGIN_QUOTE
-     Anki checks the first field for uniqueness, so it will warn you
-     if you enter two cards with a Front field of “apple” (for
-     example). The uniqueness check is limited to the current note
-     type, so if you’re studying multiple languages, two cards with
-     the same Front would not be listed as duplicates as long as you
-     had a different note type for each language.
-     #+END_QUOTE
-
-  If all the above don't help, then we have to go deeper to find out
-  what goes wrong. Here are some methods:
-
-  - Turn on logging in ~request.el~. Customize ~request-log-level~ to
-    ~debug~, retry failed actions and switch to buffer
-    ~ *request-log*~ (there's a leading space, see [[https://www.emacswiki.org/emacs/InvisibleBuffers][invisible buffer]])
-    to get logs from ~request.el~. This way we can't inspect the
-    request payload, since it's dumped into a temp file that's deleted
-    when request finishes.
-  - Use a traffic sniffer to inspect communications between Emacs and
-    Anki.
 
 * Demo
 
@@ -150,5 +182,5 @@ there were any ambiguity or grammatical mistakes ;-)/
   appreciated, thanks for your support :)
 
 [fn:1] It should be noted that Org only allows letters, numbers, =_=
-and =@= in a tag but Anki allows more, so you may have to edit you
+and ~@~ in a tag but Anki allows more, so you may have to edit you
 Anki tags before they can be used in Org without any surprise.
