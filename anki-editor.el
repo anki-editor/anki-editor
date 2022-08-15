@@ -7,7 +7,7 @@
 ;; Version: 0.3.3
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/louietan/anki-editor
-;;
+;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
@@ -513,12 +513,17 @@ Where the subtree is created depends on PREFIX."
     (anki-editor--set-note-id)))
 
 (defun anki-editor--update-note (note)
-  "Request AnkiConnect for updating fields and tags of NOTE."
+  "Request AnkiConnect for updating fields, deck, and tags of NOTE."
   (let* ((oldnote (caar (anki-editor-api-with-multi
                          (anki-editor-api-enqueue 'notesInfo
-                                                  :notes (list (anki-editor-note-id note)))
+                                                  :notes (list (string-to-number
+								(anki-editor-note-id note))))
                          (anki-editor-api-enqueue 'updateNoteFields
-                                                  :note (anki-editor-api--note note)))))
+                                                  :note (anki-editor-api--note note))
+			 (anki-editor-api-enqueue 'changeDeck
+						  :cards (list (string-to-number (anki-editor-note-id note)))
+						  :deck (anki-editor-note-deck note))
+			 )))
          (tagsadd (cl-set-difference (anki-editor-note-tags note)
                                      (alist-get 'tags oldnote)
                                      :test 'string=))
@@ -528,11 +533,13 @@ Where the subtree is created depends on PREFIX."
     (anki-editor-api-with-multi
      (when tagsadd
        (anki-editor-api-enqueue 'addTags
-                                :notes (list (anki-editor-note-id note))
+                                :notes (list (string-to-number
+					      (anki-editor-note-id note)))
                                 :tags (mapconcat #'identity tagsadd " ")))
      (when tagsdel
        (anki-editor-api-enqueue 'removeTags
-                                :notes (list (anki-editor-note-id note))
+                                :notes (list (string-to-number
+					      (anki-editor-note-id note)))
                                 :tags (mapconcat #'identity tagsdel " "))))))
 
 (defun anki-editor--set-failure-reason (reason)
@@ -610,19 +617,72 @@ Where the subtree is created depends on PREFIX."
         (tags (cl-set-difference (anki-editor--get-tags)
                                  anki-editor-ignored-org-tags
                                  :test #'string=))
-        (fields (anki-editor--build-fields)))
+        (fields (anki-editor--build-fields))
+	(content-before-subheading)
+	(content-before-subheading-raw))
+
+    ;; get contents before first subheading (skipping drawers and planning)
+    ;; FIXME refactor
+    (save-excursion 
+      (let* ((begin (cl-loop for eoh = (org-element-property :contents-begin (org-element-at-point))
+			    then (org-element-property :end subelem)
+			    for subelem = (progn
+					    (goto-char eoh)
+					    (org-element-context))
+			    while (memq (org-element-type subelem)
+					'(drawer planning property-drawer))
+			    finally return (org-element-property :begin subelem)))
+	     (end (cl-loop for eoh = (org-element-property :end (org-element-at-point))
+		   then (org-element-property :end nextelem)
+		   for nextelem = (progn
+				    (goto-char eoh)
+				    (org-element-at-point))
+		   while (not (memq (org-element-type nextelem) '(headline)))
+		   finally return (org-element-property :begin nextelem)
+		   ))
+	     (raw (or (and begin
+                          end
+                          (buffer-substring-no-properties
+                           begin
+                           ;; in case the buffer is narrowed,
+                           ;; e.g. by `org-map-entries' when
+                           ;; scope is `tree'
+                           (min (point-max) end)))
+                     ""))
+	    (content (anki-editor--export-string raw (anki-editor-entry-format))))
+
+	(setq content-before-subheading content)
+	(setq content-before-subheading-raw (string-trim raw))
+	))
 
     (anki-editor--with-collection-data-updated
       (when-let ((missing (cl-set-difference
                            (alist-get note-type anki-editor--model-fields nil nil #'string=)
                            (mapcar #'car fields)
                            :test #'string=)))
-        ;; use heading as the missing field
-        (push (cons (car missing)
-                    (anki-editor--export-string
-                     (substring-no-properties (org-get-heading t t t))
-                     format))
-              fields)))
+        ;; use heading and/or text before subheading for the missing field(s)
+	;; FIXME refactor
+	(if (and (equal 1 (length missing))
+		 (equal "" content-before-subheading-raw))
+            (push (cons (car missing)
+			(anki-editor--export-string
+			 (substring-no-properties (org-get-heading t t t))
+			 format))
+		  fields)
+	  (if (equal 1 (length missing))
+	      (push (cons (car missing)
+			  content-before-subheading)
+		    fields)
+	    (progn
+	      (push (cons (nth 1 missing)
+			  content-before-subheading)
+		    fields)
+	      (push (cons (car missing)
+			  (anki-editor--export-string
+			   (substring-no-properties (org-get-heading t t t))
+			   format))
+		    fields))))))
+	    
 
     (unless deck (error "Missing deck"))
     (unless note-type (error "Missing note type"))
@@ -650,7 +710,7 @@ Where the subtree is created depends on PREFIX."
 (defun anki-editor--build-fields ()
   "Build a list of fields from subheadings of current heading.
 
-Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
+Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."  
   (save-excursion
     (cl-loop with inhibit-message = t ; suppress echo message from `org-babel-exp-src-block'
              initially (unless (org-goto-first-child)
@@ -812,6 +872,10 @@ When you have fixed those issues, try re-push the failed ones with `anki-editor-
     (cl-loop for m in anki-editor--note-markers
              do (set-marker m nil)
              finally do (setq anki-editor--note-markers nil))))
+
+(defun anki-editor-push-note-at-point ()
+  (interactive)
+  (anki-editor--push-note (anki-editor-note-at-point)))
 
 (defun anki-editor-push-new-notes (&optional scope)
   "Push note entries without ANKI_NOTE_ID in SCOPE to Anki."
