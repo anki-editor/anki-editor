@@ -2,6 +2,7 @@
 
 anki-editor -- An Emacs minor mode for making Anki cards with Org
 
+These is my version of [[https://github.com/louietan/anki-editor/tree/084ffad14fa700ad1ba95d8cbfe4a8f6052e2408][anki-editor]] with some new features and bugfixes(example)
 /Since I'm not a native English speaker, feel free to correct me if
 there are any ambiguity or grammatical mistakes ;-)/
 
@@ -12,9 +13,7 @@ there are any ambiguity or grammatical mistakes ;-)/
     an Anki add-on required by this package to interact with Anki
   - curl
 
-  If you have [[http://melpa.org/][MELPA]] in your ~package-archives~,
-  just ~M-x package-install RET anki-editor RET~, or install it
-  manually by downloading and visiting [[./anki-editor.el][anki-editor.el]] in your
+  We are not on MELPA to install it you have to manually download and visit [[./anki-editor.el][anki-editor.el]] in your
   emacs buffer, and ~M-x package-install-from-buffer RET~.
 
 * Usage
