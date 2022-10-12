@@ -1,24 +1,36 @@
-[[http://melpa.org/#/anki-editor][file:http://melpa.org/packages/anki-editor-badge.svg]]
+* anki-editor
 
-anki-editor -- An Emacs minor mode for making Anki cards with Org
+anki-editor is an [[https://www.gnu.org/software/emacs/emacs.html][Emacs]] minor for making [[https://apps.ankiweb.net][Anki]] cards with [[https://orgmode.org][Org]].
 
-These is my version of [[https://github.com/louietan/anki-editor/tree/084ffad14fa700ad1ba95d8cbfe4a8f6052e2408][anki-editor]] with some new features and bugfixes(example)
-/Since I'm not a native English speaker, feel free to correct me if
-there are any ambiguity or grammatical mistakes ;-)/
+This repository contains a fork of [[https://github.com/louietan/anki-editor][louietan/anki-editor]]. So far the main difference is that the changes in the develop branch of the original have been merged into the master branch. See the unreleased section of [[https://github.com/orgtre/anki-editor/blob/master/Changelog.org][Changelog.org]] for a list of the new features that come with this. Additionally, a more flexible note structure, outlined [[https://github.com/eyeinsky/org-anki/issues/48#issuecomment-1216625730][here]], has been introduced. See the [[https://github.com/louietan/anki-editor/compare/master...orgtre:anki-editor:master][commit log]] for a full list of differences.
 
-* Installation
 
-  *Requirements*
-  - [[https://github.com/FooSoft/anki-connect#installation][AnkiConnect]],
-    an Anki add-on required by this package to interact with Anki
-  - curl
+** Installation
 
-  We are not on MELPA to install it you have to manually download and visit [[./anki-editor.el][anki-editor.el]] in your
-  emacs buffer, and ~M-x package-install-from-buffer RET~.
+*** External dependencies
 
-* Usage
+Other than Emacs you need [[https://apps.ankiweb.net][Anki]], its [[https://github.com/FooSoft/anki-connect][AnkiConnect]] add-on, and [[https://curl.se][curl]] to use anki-editor.
 
-** The Layout of Notes
+*** Using package.el
+
+If you're using the built-in =package.el= package manager, first manually download this repository and then type the following in Emacs: 
+
+: M-x package-install-file [RET] "path/to/anki-editor.el" [RET]
+
+You can also first visit =anki-editor.el= in an Emacs buffer and then type =M-x package-install-from-buffer [RET]=. Both will install the anki-editor package, including uninstalled Elisp dependencies, into =package-user-dir= (=~/.emacs.d/elpa= by default), generate autoloads, and set up =load-path=.
+
+*** Using straight.el
+
+If you're using [[https://github.com/radian-software/straight.el][straight.el]] as package manager, install by adding this to your =init.el=:
+#+begin_src elisp
+(use-package anki-editor  
+  :straight (:host github :repo "orgtre/anki-editor")
+  :commands anki-editor-mode)
+#+end_src
+
+** Usage
+
+*** The Layout of Notes
 
    The power of this mode comes from the builtin HTML export backend
    provided by Org, which enables you to use almost all the Org
@@ -58,7 +70,11 @@ there are any ambiguity or grammatical mistakes ;-)/
    ~anki-editor-insert-note~ to help with this and hooks up
    auto-completions for decks, note types and tags etc.
 
-** Commands
+[fn:1] It should be noted that Org only allows letters, numbers, =_=
+and ~@~ in a tag but Anki allows more, so you may have to edit you
+Anki tags before they can be used in Org without any surprise.
+
+*** Commands
 
    | Command                            | Description                                                                                                                    |
    |------------------------------------+--------------------------------------------------------------------------------------------------------------------------------|
@@ -76,7 +92,7 @@ there are any ambiguity or grammatical mistakes ;-)/
    | anki-editor-gui-browse             | Open Anki Browser with a query for current note or deck.                                                                       |
    | anki-editor-gui-add-cards          | Open Anki Add Cards dialog with presets from current note entry.                                                               |
 
-** Variables
+*** Variables
 
    | Name                                          | Default Value          | Description                                                                                              |
    |-----------------------------------------------+------------------------+----------------------------------------------------------------------------------------------------------|
@@ -91,22 +107,22 @@ there are any ambiguity or grammatical mistakes ;-)/
    | anki-editor-html-head                         | nil                    | Additional html tags to append to card stylings when using `anki-editor-copy-styles'.                    |
    | anki-editor-note-match                        | nil                    | Additional matching string for mapping through anki note headings.                                       |
 
-** Functions and Macros
+*** Functions and Macros
 
-*** anki-editor-map-note-entries
+**** anki-editor-map-note-entries
 
     Simple wrapper that calls ~org-map-entries~ with
     ~&ANKI_NOTE_TYPE<>\"\"~ appended to MATCH.
 
-*** anki-editor-api-call
+**** anki-editor-api-call
 
     Invoke AnkiConnect with ACTION and PARAMS.
 
-*** anki-editor-api-call-result
+**** anki-editor-api-call-result
 
     Calls above, returns result field or raise an error.
 
-*** anki-editor-api-with-multi
+**** anki-editor-api-with-multi
 
     Used in combination with ~anki-editor-api-enqueue~ to queue
     multiple api calls and combine them into one 'multi' call at the
@@ -128,58 +144,46 @@ there are any ambiguity or grammatical mistakes ;-)/
                  decks models tags notes))
     #+end_src
 
-*** anki-editor-api-enqueue
+**** anki-editor-api-enqueue
 
     Like ~anki-editor-api-call~, but is only used in combination with
     ~anki-editor-api-with-multi~.  Instead of sending the request
     directly, it simply queues the request.
 
-*** anki-editor-note-at-point
+**** anki-editor-note-at-point
 
     Make a note struct from current entry.
 
-*** anki-editor-find-notes
+**** anki-editor-find-notes
 
     Find notes with QUERY.
 
-*** anki-editor-copy-styles
+**** anki-editor-copy-styles
 
     Copy `org-html-style-default' and `anki-editor-html-head' to Anki card stylings.
 
-*** anki-editor-remove-styles
+**** anki-editor-remove-styles
 
     Remove from card stylings html tags generated by this mode.
 
-* Limitations
+** Limitations
 
-** Tags between Anki and Org
+*** Tags between Anki and Org
 
    Because the set of characters allowed in tags is different between
    Anki and Org, you have to make sure that tags from Anki are
    compatible with Org and tags in Org could be recognized by Anki.
 
-** Working with Anki add-ons
+*** Working with Anki add-ons
 
    This package might not work well with certain Anki add-ons
    especially those who extend the builtin Anki note editor to
    automatically fill note field content (e.g. ~Add note id~).
 
-* Demo
+** Demo
 
   [[./demo.gif]]
 
-* Donation
+** Donation
 
-  This package was a set of utilities in my personal =.emacs=, then I
-  thought it might be helpful to others, so I decided to make it a
-  package and share with you guys.  Since then I have been devoting
-  part of my free time to the maintenance of this package.
-
-  Donation is not required, but if you like my work and want to show
-  your appreciation you can donate via
-  [[https://paypal.me/louietanlei][PayPal]], every cent is
-  appreciated, thanks for your support :)
-
-[fn:1] It should be noted that Org only allows letters, numbers, =_=
-and ~@~ in a tag but Anki allows more, so you may have to edit you
-Anki tags before they can be used in Org without any surprise.
+The original author [[https://github.com/louietan][louietan]] developed almost all of this package in his free time! If you find it useful, consider thanking him by donating to his [[https://paypal.me/louietanlei][PayPal]] (you can verify the link and read more at the original repository [[https://github.com/louietan/anki-editor#donation][here]]).
