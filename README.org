@@ -1,3 +1,4 @@
+#+OPTIONS: toc:3
 * anki-editor
 
 anki-editor is an [[https://www.gnu.org/software/emacs/emacs.html][Emacs]] minor for making [[https://apps.ankiweb.net][Anki]] cards with [[https://orgmode.org][Org]].
