@@ -628,36 +628,37 @@ Where the subtree is created depends on PREFIX."
     ;; get contents before first subheading (skipping drawers and planning)
     ;; FIXME refactor
     (save-excursion 
-      (let* ((begin (cl-loop for eoh = (org-element-property :contents-begin (org-element-at-point))
-			    then (org-element-property :end subelem)
-			    for subelem = (progn
+      (let* ((element (org-element-at-point))
+	     (begin (cl-loop for eoh = (org-element-property :contents-begin element)
+			     then (org-element-property :end subelem)
+			     while eoh
+			     for subelem = (progn
+					     (goto-char eoh)
+					     (org-element-context))
+			     while (memq (org-element-type subelem)
+					 '(drawer planning property-drawer))
+			     finally return (and eoh (org-element-property :begin subelem))))
+	     (end (cl-loop for eoh = (org-element-property :contents-begin element)
+			   then (org-element-property :end nextelem)
+			   while eoh
+			   for nextelem = (progn
 					    (goto-char eoh)
-					    (org-element-context))
-			    while (memq (org-element-type subelem)
-					'(drawer planning property-drawer))
-			    finally return (org-element-property :begin subelem)))
-	     (end (cl-loop for eoh = (org-element-property :end (org-element-at-point))
-		   then (org-element-property :end nextelem)
-		   for nextelem = (progn
-				    (goto-char eoh)
-				    (org-element-at-point))
-		   while (not (memq (org-element-type nextelem) '(headline)))
-		   finally return (org-element-property :begin nextelem)
-		   ))
+					    (org-element-at-point))
+			   while (not (memq (org-element-type nextelem) '(headline)))
+			   finally return (and eoh (org-element-property :begin nextelem))))
 	     (raw (or (and begin
-                          end
-                          (buffer-substring-no-properties
-                           begin
-                           ;; in case the buffer is narrowed,
-                           ;; e.g. by `org-map-entries' when
-                           ;; scope is `tree'
-                           (min (point-max) end)))
-                     ""))
-	    (content (anki-editor--export-string raw (anki-editor-entry-format))))
+                           end
+                           (buffer-substring-no-properties
+                            begin
+                            ;; in case the buffer is narrowed,
+                            ;; e.g. by `org-map-entries' when
+                            ;; scope is `tree'
+                            (min (point-max) end)))
+                      ""))
+	     (content (anki-editor--export-string raw (anki-editor-entry-format))))
 
 	(setq content-before-subheading content)
-	(setq content-before-subheading-raw (string-trim raw))
-	))
+	(setq content-before-subheading-raw (string-trim raw))))
 
     (anki-editor--with-collection-data-updated
       (when-let ((missing (cl-set-difference
@@ -686,7 +687,6 @@ Where the subtree is created depends on PREFIX."
 			   (substring-no-properties (org-get-heading t t t))
 			   format))
 		    fields))))))
-	    
 
     (unless deck (error "Missing deck"))
     (unless note-type (error "Missing note type"))
@@ -729,12 +729,13 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              ;; elements and reset contents-begin.
              for begin = (cl-loop for eoh = (org-element-property :contents-begin element)
                                   then (org-element-property :end subelem)
+				  while eoh
                                   for subelem = (progn
                                                   (goto-char eoh)
                                                   (org-element-context))
                                   while (memq (org-element-type subelem)
                                               '(drawer planning property-drawer))
-                                  finally return (org-element-property :begin subelem))
+                                  finally return (and eoh (org-element-property :begin subelem)))
              for end = (org-element-property :contents-end element)
              for raw = (or (and begin
                                 end
