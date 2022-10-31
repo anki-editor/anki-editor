@@ -273,6 +273,9 @@ The result is the path to the newly stored media file."
 (defconst anki-editor--ox-export-ext-plist
   '(:with-toc nil :with-properties nil :with-planning nil :anki-editor-mode t))
 
+(defconst anki-editor--audio-extensions
+  '(".mp3" ".3gp" ".flac" ".m4a" ".oga" ".ogg" ".opus" ".spx" ".wav"))
+
 (cl-macrolet ((with-table (table)
                           `(cl-loop for delims in ,table
                                     collect
@@ -372,8 +375,9 @@ The implementation is borrowed and simplified from ox-html."
             (org-html--format-image path attributes-plist info))
 
            ;; Audio file.
-           ((string-suffix-p ".mp3" path t)
-            (format "[sound:%s]" path))
+	   ((cl-some (lambda (string) (string-suffix-p string path t))
+		     anki-editor--audio-extensions)
+	    (format "[sound:%s]" path))
 
            ;; External link with a description part.
            ((and path desc) (format "<a href=\"%s\"%s>%s</a>"
@@ -519,11 +523,7 @@ Where the subtree is created depends on PREFIX."
                                                   :notes (list (string-to-number
 								(anki-editor-note-id note))))
                          (anki-editor-api-enqueue 'updateNoteFields
-                                                  :note (anki-editor-api--note note))
-			 (anki-editor-api-enqueue 'changeDeck
-						  :cards (list (string-to-number (anki-editor-note-id note)))
-						  :deck (anki-editor-note-deck note))
-			 )))
+                                                  :note (anki-editor-api--note note)))))
          (tagsadd (cl-set-difference (anki-editor-note-tags note)
                                      (alist-get 'tags oldnote)
                                      :test 'string=))
@@ -531,6 +531,10 @@ Where the subtree is created depends on PREFIX."
                     (cl-set-difference (anki-editor-note-tags note) :test 'string=)
                     (cl-set-difference anki-editor-protected-tags :test 'string=))))
     (anki-editor-api-with-multi
+     (anki-editor-api-enqueue 'changeDeck
+			      :cards (alist-get 'cards oldnote)
+			      :deck (anki-editor-note-deck note))
+
      (when tagsadd
        (anki-editor-api-enqueue 'addTags
                                 :notes (list (string-to-number
