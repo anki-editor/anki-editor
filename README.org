@@ -9,7 +9,7 @@ This repository contains a fork of [[https://github.com/louietan/anki-editor][lo
 
 *** External dependencies
 
-Other than Emacs you need [[https://apps.ankiweb.net][Anki]], its [[https://github.com/FooSoft/anki-connect][AnkiConnect]] add-on, and [[https://curl.se][curl]] to use anki-editor.
+Other than Emacs you need [[https://apps.ankiweb.net][Anki]], its [[https://github.com/FooSoft/anki-connect][AnkiConnect]] add-on, and [[https://curl.se][curl]] to use anki-editor. Because of AnkiConnect, anki-editor-mode needs Anki to be running (see [[https://github.com/orgtre/anki-editor/issues/5#issuecomment-1295857747][issue]] for explanation).
 
 *** Using package.el
 
