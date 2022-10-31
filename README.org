@@ -180,6 +180,14 @@ Anki tags before they can be used in Org without any surprise.
    especially those who extend the builtin Anki note editor to
    automatically fill note field content (e.g. ~Add note id~).
 
+*** One Way Sync with Anki
+To sync anki notes and decks to org see ([[https://github.com/orgtre/ankiorg][orgtre/ankiorg]]).
+
+The following items are not synchronized to org:
+ - Deletion of Notes
+ - Deck Changes
+ - Note Type Changes
+
 ** Demo
 
   [[./demo.gif]]
