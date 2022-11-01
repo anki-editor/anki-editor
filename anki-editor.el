@@ -613,84 +613,30 @@ Where the subtree is created depends on PREFIX."
 
 (defun anki-editor-note-at-point ()
   "Make a note struct from current entry."
-  (let ((org-trust-scanner-tags t)
-        (deck (org-entry-get-with-inheritance anki-editor-prop-deck))
-        (format (anki-editor-entry-format))
-        (note-id (org-entry-get nil anki-editor-prop-note-id))
-        (note-type (org-entry-get nil anki-editor-prop-note-type))
-        (tags (cl-set-difference (anki-editor--get-tags)
-                                 anki-editor-ignored-org-tags
-                                 :test #'string=))
-        (fields (anki-editor--build-fields))
-	(content-before-subheading)
-	(content-before-subheading-raw))
-
-    ;; get contents before first subheading (skipping drawers and planning)
-    ;; FIXME refactor
-    (save-excursion 
-      (let* ((element (org-element-at-point))
-	     (begin (cl-loop for eoh = (org-element-property :contents-begin element)
-			     then (org-element-property :end subelem)
-			     while eoh
-			     for subelem = (progn
-					     (goto-char eoh)
-					     (org-element-context))
-			     while (memq (org-element-type subelem)
-					 '(drawer planning property-drawer))
-			     finally return (and eoh (org-element-property :begin subelem))))
-	     (end (cl-loop for eoh = (org-element-property :contents-begin element)
-			   then (org-element-property :end nextelem)
-			   while eoh
-			   for nextelem = (progn
-					    (goto-char eoh)
-					    (org-element-at-point))
-			   while (not (memq (org-element-type nextelem) '(headline)))
-			   finally return (and eoh (org-element-property :begin nextelem))))
-	     (raw (or (and begin
-                           end
-                           (buffer-substring-no-properties
-                            begin
-                            ;; in case the buffer is narrowed,
-                            ;; e.g. by `org-map-entries' when
-                            ;; scope is `tree'
-                            (min (point-max) end)))
-                      ""))
-	     (content (anki-editor--export-string raw (anki-editor-entry-format))))
-
-	(setq content-before-subheading content)
-	(setq content-before-subheading-raw (string-trim raw))))
-
-    (anki-editor--with-collection-data-updated
-      (when-let ((missing (cl-set-difference
-                           (alist-get note-type anki-editor--model-fields nil nil #'string=)
-                           (mapcar #'car fields)
-                           :test #'string=)))
-        ;; use heading and/or text before subheading for the missing field(s)
-	;; FIXME refactor
-	(if (and (equal 1 (length missing))
-		 (equal "" content-before-subheading-raw))
-            (push (cons (car missing)
-			(anki-editor--export-string
-			 (substring-no-properties (org-get-heading t t t))
-			 format))
-		  fields)
-	  (if (equal 1 (length missing))
-	      (push (cons (car missing)
-			  content-before-subheading)
-		    fields)
-	    (progn
-	      (push (cons (nth 1 missing)
-			  content-before-subheading)
-		    fields)
-	      (push (cons (car missing)
-			  (anki-editor--export-string
-			   (substring-no-properties (org-get-heading t t t))
-			   format))
-		    fields))))))
-
+  (let* ((org-trust-scanner-tags t)
+         (deck (org-entry-get-with-inheritance anki-editor-prop-deck))
+         (format (anki-editor-entry-format))
+         (note-id (org-entry-get nil anki-editor-prop-note-id))
+         (note-type (org-entry-get nil anki-editor-prop-note-type))
+         (tags (cl-set-difference (anki-editor--get-tags)
+                                  anki-editor-ignored-org-tags
+                                  :test #'string=))
+	 (heading (anki-editor--export-string
+		   (substring-no-properties (org-get-heading t t t))
+		   format))
+         (subheading-fields (anki-editor--build-fields))
+	 (content-before-subheading-raw
+	  (anki-editor--note-contents-before-subheading))
+	 (content-before-subheading
+	  (anki-editor--export-string content-before-subheading-raw format))
+	 fields)
     (unless deck (error "Missing deck"))
     (unless note-type (error "Missing note type"))
-
+    (setq fields (anki-editor--map-fields heading
+					  content-before-subheading
+					  content-before-subheading-raw
+					  subheading-fields
+					  note-type))
     (make-anki-editor-note :id note-id
                            :model note-type
                            :deck deck
@@ -714,7 +660,7 @@ Where the subtree is created depends on PREFIX."
 (defun anki-editor--build-fields ()
   "Build a list of fields from subheadings of current heading.
 
-Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."  
+Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (save-excursion
     (cl-loop with inhibit-message = t ; suppress echo message from `org-babel-exp-src-block'
              initially (unless (org-goto-first-child)
@@ -752,6 +698,76 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              ;; see if it's already the last entry
              do (org-forward-heading-same-level nil t)
              until (= last-pt (point)))))
+
+(defun anki-editor--note-contents-before-subheading ()
+  "Get content between heading at point and next sub/heading.
+
+Leading whitespace, drawers, and planning content is skipped."
+  (save-excursion
+    (let* ((element (org-element-at-point))
+	   (begin (cl-loop for eoh = (org-element-property :contents-begin element)
+			   then (org-element-property :end subelem)
+			   while eoh
+			   for subelem = (progn
+					   (goto-char eoh)
+					   (org-element-context))
+			   while (memq (org-element-type subelem)
+				       '(drawer planning property-drawer))
+			   finally return (and eoh (org-element-property :begin subelem))))
+	   (end (cl-loop for eoh = (org-element-property :contents-begin element)
+			 then (org-element-property :end nextelem)
+			 while eoh
+			 for nextelem = (progn
+					  (goto-char eoh)
+					  (org-element-at-point))
+			 while (not (memq (org-element-type nextelem) '(headline)))
+			 finally return (and eoh (org-element-property :begin nextelem))))
+	   (contents-raw (or (and begin
+				  end
+				  (buffer-substring-no-properties
+				   begin
+				   ;; in case the buffer is narrowed,
+				   ;; e.g. by `org-map-entries' when
+				   ;; scope is `tree'
+				   (min (point-max) end)))
+			     "")))
+      contents-raw)))
+
+(defun anki-editor--map-fields (heading
+				content-before-subheading
+				content-before-subheading-raw
+				subheading-fields
+				note-type)
+  "Map `heading', pre-subheading content, and subheadings to fields.
+
+When the `subheading-fields' don't match the `note-type's fields,
+map missing fields to the `heading' and/or `content-before-subheading'.
+Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
+  (anki-editor--with-collection-data-updated
+    (let ((fields subheading-fields))
+      (when-let ((missing (cl-set-difference
+                           (alist-get note-type
+				      anki-editor--model-fields
+				      nil nil #'string=)
+                           (mapcar #'car fields)
+                           :test #'string=)))
+	(if (and (equal 1 (length missing))
+		 (equal "" (string-trim content-before-subheading-raw)))
+            (push (cons (car missing)
+			heading)
+		  fields)
+	  (if (equal 1 (length missing))
+	      (push (cons (car missing)
+			  content-before-subheading)
+		    fields)
+	    (progn
+	      (push (cons (nth 1 missing)
+			  content-before-subheading)
+		    fields)
+	      (push (cons (car missing)
+			  heading)
+		    fields)))))
+      fields)))
 
 
 ;;; Minor mode
