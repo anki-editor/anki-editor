@@ -24,9 +24,9 @@ You can also first visit =anki-editor.el= in an Emacs buffer and then type =M-x 
 
 If you're using [[https://github.com/radian-software/straight.el][straight.el]] as package manager, install by adding this to your =init.el=:
 #+begin_src elisp
-(use-package anki-editor  
-  :straight (:host github :repo "orgtre/anki-editor")
-  :commands anki-editor-mode)
+(use-package anki-editor
+  :defer t
+  :straight (:fork "orgtre"))
 #+end_src
 
 ** Usage
