@@ -621,27 +621,28 @@ Where the subtree is created depends on PREFIX."
          (tags (cl-set-difference (anki-editor--get-tags)
                                   anki-editor-ignored-org-tags
                                   :test #'string=))
-	 (heading (anki-editor--export-string
-		   (substring-no-properties (org-get-heading t t t))
-		   format))
-         (subheading-fields (anki-editor--build-fields))
-	 (content-before-subheading-raw
-	  (anki-editor--note-contents-before-subheading))
+	 (heading (substring-no-properties (org-get-heading t t t)))
+	 (level (org-current-level))
 	 (content-before-subheading
-	  (anki-editor--export-string content-before-subheading-raw format))
-	 fields)
+	  (anki-editor--note-contents-before-subheading))
+	 (subheading-fields (anki-editor--build-fields))
+	 (fields (anki-editor--map-fields heading
+					  content-before-subheading
+					  subheading-fields
+					  note-type
+					  level))
+	 (exported-fields (mapcar (lambda (x)
+				    (cons
+				     (car x)
+				     (anki-editor--export-string (cdr x) format)))
+				  fields)))
     (unless deck (error "Missing deck"))
     (unless note-type (error "Missing note type"))
-    (setq fields (anki-editor--map-fields heading
-					  content-before-subheading
-					  content-before-subheading-raw
-					  subheading-fields
-					  note-type))
     (make-anki-editor-note :id note-id
                            :model note-type
                            :deck deck
                            :tags tags
-                           :fields fields)))
+                           :fields exported-fields)))
 
 (defun anki-editor--get-tags ()
   (let ((tags (anki-editor--entry-get-multivalued-property-with-inheritance
@@ -669,19 +670,19 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              for element = (org-element-at-point)
              for heading = (substring-no-properties
                             (org-element-property :raw-value element))
-             for format = (anki-editor-entry-format)
              ;; contents-begin includes drawers and scheduling data,
              ;; which we'd like to ignore, here we skip these
              ;; elements and reset contents-begin.
-             for begin = (cl-loop for eoh = (org-element-property :contents-begin element)
-                                  then (org-element-property :end subelem)
-				  while eoh
-                                  for subelem = (progn
-                                                  (goto-char eoh)
-                                                  (org-element-context))
-                                  while (memq (org-element-type subelem)
-                                              '(drawer planning property-drawer))
-                                  finally return (and eoh (org-element-property :begin subelem)))
+             for begin = (save-excursion
+			   (cl-loop for eoh = (org-element-property :contents-begin element)
+                                    then (org-element-property :end subelem)
+				    while eoh
+                                    for subelem = (progn
+                                                    (goto-char eoh)
+                                                    (org-element-context))
+                                    while (memq (org-element-type subelem)
+						'(drawer planning property-drawer))
+                                    finally return (and eoh (org-element-property :begin subelem))))
              for end = (org-element-property :contents-end element)
              for raw = (or (and begin
                                 end
@@ -692,8 +693,9 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                                  ;; scope is `tree'
                                  (min (point-max) end)))
                            "")
-             for content = (anki-editor--export-string raw format)
-             collect (cons heading content)
+             ;; for content = (anki-editor--export-string raw format)
+             ;; collect (cons heading content)
+	     collect (cons heading raw)
              ;; proceed to next field entry and check last-pt to
              ;; see if it's already the last entry
              do (org-forward-heading-same-level nil t)
@@ -735,39 +737,95 @@ Leading whitespace, drawers, and planning content is skipped."
 
 (defun anki-editor--map-fields (heading
 				content-before-subheading
-				content-before-subheading-raw
 				subheading-fields
-				note-type)
+				note-type
+				level)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
 map missing fields to the `heading' and/or `content-before-subheading'.
 Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (anki-editor--with-collection-data-updated
-    (let ((fields subheading-fields))
-      (when-let ((missing (cl-set-difference
-                           (alist-get note-type
-				      anki-editor--model-fields
-				      nil nil #'string=)
-                           (mapcar #'car fields)
-                           :test #'string=)))
-	(if (and (equal 1 (length missing))
-		 (equal "" (string-trim content-before-subheading-raw)))
-            (push (cons (car missing)
-			heading)
-		  fields)
-	  (if (equal 1 (length missing))
-	      (push (cons (car missing)
-			  content-before-subheading)
-		    fields)
-	    (progn
-	      (push (cons (nth 1 missing)
-			  content-before-subheading)
-		    fields)
-	      (push (cons (car missing)
-			  heading)
-		    fields)))))
+    (let* ((fields-matching (cl-intersection
+			     (alist-get note-type
+					anki-editor--model-fields
+					nil nil #'string=)
+			     (mapcar #'car subheading-fields)
+			     :test #'string=))
+	   (fields-missing (cl-set-difference
+			    (alist-get note-type
+				       anki-editor--model-fields
+				       nil nil #'string=)
+			    (mapcar #'car subheading-fields)
+			    :test #'string=))
+	   (fields-extra (cl-set-difference
+			  (mapcar #'car subheading-fields)
+			  (alist-get note-type
+				     anki-editor--model-fields
+				     nil nil #'string=)
+			  :test #'string=))
+	   (fields (cl-loop for f in fields-matching
+			    collect (cons f (alist-get
+					     f subheading-fields
+					     nil nil #'string=)))))
+      (cond ((equal 0 (length fields-missing))
+	     (when (< 0 (length fields-extra))
+	       (error "Failed to map all subheadings to a field.")))
+	    ((equal 1 (length fields-missing))
+	     (if (equal 0 (length fields-extra))
+		 (if (equal "" (string-trim content-before-subheading))
+		     (push (cons (car fields-missing) heading)
+			   fields)
+		   (push (cons (car fields-missing) content-before-subheading)
+			 fields))
+	       (if (equal "" (string-trim content-before-subheading))
+		   (push (cons (car fields-missing)
+			       (anki-editor--concat-fields
+				fields-extra subheading-fields level))
+			 fields)
+		 (push (cons (car fields-missing)
+			     (concat content-before-subheading
+				     (anki-editor--concat-fields
+				      fields-extra subheading-fields level)))
+		       fields))))
+	    ((equal 2 (length fields-missing))
+	     (if (equal 0 (length fields-extra))
+		 (progn
+		   (push (cons (nth 1 fields-missing)
+			       content-before-subheading)
+			 fields)
+		   (push (cons (car fields-missing)
+			       heading)
+			 fields))
+	       (if (equal "" (string-trim content-before-subheading))
+		   (progn
+		     (push (cons (nth 1 fields-missing)
+				 (anki-editor--concat-fields
+				  fields-extra subheading-fields level))
+			   fields)
+		     (push (cons (car fields-missing)
+				 heading)
+			   fields))
+		 (progn
+		   (push (cons (nth 1 fields-missing)
+			       (concat content-before-subheading
+				       (anki-editor--concat-fields
+					fields-extra subheading-fields level)))
+			 fields)
+		   (push (cons (car fields-missing)
+			       heading)
+			 fields)))))
+	    ((< 2 (length fields-missing))
+	     (error "Cannot map note fields: More than two fields missing.")))
       fields)))
+
+(defun anki-editor--concat-fields (field-names field-alist level)
+  "Concat field names and content of fields in list `field-names'."
+  (let ((format (anki-editor-entry-format)))
+    (cl-loop for f in field-names
+	     concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
+			    (string-trim (alist-get f field-alist nil nil #'string=))
+			    "\n\n"))))
 
 
 ;;; Minor mode
