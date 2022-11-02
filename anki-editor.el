@@ -1045,7 +1045,10 @@ When note heading is not provided, it is used as the first field."
   (interactive)
   (let ((ver (condition-case err
                  (anki-editor-api-call-result 'version)
-               (error (error "Failed to connect to Anki: %s" (error-message-string err))))))
+               (error (error (concat "Failed to connect to Anki: %s"
+				     "\nIs Anki running with the "
+				     "AnkiConnect add-on enabled?")
+			     (error-message-string err))))))
     (if (<= anki-editor-api-version ver)
         (when (called-interactively-p 'interactive)
           (message "AnkiConnect v.%d is running" ver))
