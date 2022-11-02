@@ -129,6 +129,11 @@ This is only in effect when exactly one note-type field is not found
 among the note subheadings and there is content before the first subheading."
   :type 'boolean)
 
+(defcustom anki-editor-insert-note-always-use-content nil
+  "Whether to always make use of content before (sub)heading.
+See `anki-editor-insert-note', whose behavior this controls."
+  :type 'boolean)
+
 
 ;;; AnkiConnect
 
@@ -481,22 +486,35 @@ A leading logical operator like `+' or `&' is required in MATCH."
 
 (defun anki-editor--insert-note-skeleton (prefix deck heading type fields)
   "Insert a note subtree (skeleton) with HEADING, TYPE and FIELDS.
-Where the subtree is created depends on PREFIX."
-  (org-insert-heading prefix)
+DECK is only inserted if not already inherited. For PREFIX and more
+see `anki-editor-insert-note' which wraps this function."
+  (org-insert-heading-respect-content)
   (insert heading)
+  (org-set-property anki-editor-prop-note-type type)
   (unless (save-excursion
             (org-up-heading-safe)
-            ;; don't insert `ANKI_DECK' if some ancestor already has
-            ;; the same value
             (and (not (string-blank-p deck))
-                 (string= deck (org-entry-get-with-inheritance anki-editor-prop-deck))))
+                 (string= deck (org-entry-get-with-inheritance
+				anki-editor-prop-deck))))
     (org-set-property anki-editor-prop-deck deck))
-  (org-set-property anki-editor-prop-note-type type)
-  (dolist (field fields)
-    (save-excursion
-      (org-insert-heading-respect-content)
-      (org-do-demote)
-      (insert field))))
+  (when (string-blank-p heading)
+    (setq fields (cdr fields)))
+  (when (equal 1 (length fields))
+    (setq fields nil))
+  (let ((use-content (if prefix
+			 (not anki-editor-insert-note-always-use-content)
+		       anki-editor-insert-note-always-use-content)))
+    (when use-content
+      (setq fields (cdr fields)))
+    (dolist (field fields)
+      (save-excursion
+	(org-insert-heading-respect-content)
+	(org-do-demote)
+	(insert field)))
+    (when (and (not (string-blank-p heading))
+	       (not use-content))
+      (org-goto-first-child)
+      (end-of-line))))
 
 (defun anki-editor--push-note (note)
   "Request AnkiConnect for updating or creating NOTE."
@@ -1018,23 +1036,29 @@ matching non-empty `ANKI_FAILURE_REASON' properties."
 (defun anki-editor-insert-note (&optional prefix)
   "Insert a note interactively.
 
-Where the note subtree is placed depends on PREFIX, which is the
-same as how it is used by `M-RET'(org-insert-heading).
+The note is placed after the current subtree, at the same level
+as the heading closest before point.
 
-When note heading is not provided, it is used as the first field."
+When note heading is not provided, it is used as the first field;
+when additionally the note-type only has two fields, the content
+after the heading is used for the second field and no subheading
+is created.
+
+With `anki-editor-insert-note-always-use-content' the content
+after the note heading and before the first subheading is always
+used for a field (the second or first field, depending on whether
+the heading is used for the first field or not). PREFIX temporarily
+inverts the value of `anki-editor-insert-note-always-use-content'."
   (interactive "P")
   (let* ((deck (or (org-entry-get-with-inheritance anki-editor-prop-deck)
-                   (completing-read "Deck: " (sort (anki-editor-deck-names) #'string-lessp))))
-         (type (completing-read "Note type: " (sort (anki-editor-note-types) #'string-lessp)))
-         (fields (anki-editor-api-call-result 'modelFieldNames :modelName type))
+                   (completing-read "Deck: " (sort (anki-editor-deck-names)
+						   #'string-lessp))))
+         (type (completing-read "Note type: " (sort (anki-editor-note-types)
+						    #'string-lessp)))
+         (fields (anki-editor-api-call-result 'modelFieldNames
+					      :modelName type))
          (heading (read-from-minibuffer "Note heading (optional): ")))
-    (anki-editor--insert-note-skeleton prefix
-                                       deck
-                                       heading
-                                       type
-                                       (if (string-blank-p heading)
-                                           (cdr fields)
-                                         fields))))
+    (anki-editor--insert-note-skeleton prefix deck heading type fields)))
 
 (defun anki-editor-cloze-region (&optional arg hint)
   "Cloze region with number ARG."
