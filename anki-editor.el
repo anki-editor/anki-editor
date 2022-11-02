@@ -134,6 +134,10 @@ among the note subheadings and there is content before the first subheading."
 See `anki-editor-insert-note', whose behavior this controls."
   :type 'boolean)
 
+(defcustom anki-editor-default-note-type "Basic"
+  "Default note type when creating anki-editor notes in org.
+Only used when no ANKI_DEFAULT_NOTE_TYPE property is inherited.")
+
 
 ;;; AnkiConnect
 
@@ -429,6 +433,7 @@ The implementation is borrowed and simplified from ox-html."
 (defconst anki-editor-prop-tags "ANKI_TAGS")
 (defconst anki-editor-prop-tags-plus (concat anki-editor-prop-tags "+"))
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
+(defconst anki-editor-prop-default-note-type "ANKI_DEFAULT_NOTE_TYPE")
 (defconst anki-editor-org-tag-regexp "^\\([[:alnum:]_@#%]+\\)+$")
 
 (cl-defstruct anki-editor-note
@@ -1033,7 +1038,7 @@ matching non-empty `ANKI_FAILURE_REASON' properties."
     (when (called-interactively-p 'interactive)
       (message "Deleted note %s" (nth 0 noteids)))))
 
-(defun anki-editor-insert-note (&optional prefix)
+(defun anki-editor-insert-note (&optional prefix note-type)
   "Insert a note interactively.
 
 The note is placed after the current subtree, at the same level
@@ -1048,17 +1053,69 @@ With `anki-editor-insert-note-always-use-content' the content
 after the note heading and before the first subheading is always
 used for a field (the second or first field, depending on whether
 the heading is used for the first field or not). PREFIX temporarily
-inverts the value of `anki-editor-insert-note-always-use-content'."
+inverts the value of `anki-editor-insert-note-always-use-content'.
+
+When NOTE-TYPE is nil, prompt for one."
   (interactive "P")
   (let* ((deck (or (org-entry-get-with-inheritance anki-editor-prop-deck)
                    (completing-read "Deck: " (sort (anki-editor-deck-names)
 						   #'string-lessp))))
-         (type (completing-read "Note type: " (sort (anki-editor-note-types)
-						    #'string-lessp)))
+         (type (or note-type
+		   (completing-read "Note type: " (sort
+						   (anki-editor-note-types)
+						   #'string-lessp))))
          (fields (anki-editor-api-call-result 'modelFieldNames
 					      :modelName type))
          (heading (read-from-minibuffer "Note heading (optional): ")))
     (anki-editor--insert-note-skeleton prefix deck heading type fields)))
+
+(defun anki-editor-insert-default-note (&optional prefix)
+  "Insert a note with default note type interactively.
+The note type is taken from the ANKI_DEFAULT_NOTE_TYPE property,
+with inheritance, or from `anki-editor-default-note-type'.
+Otherwise this command is like `anki-editor-insert-note'."
+  (interactive "P")
+  (let ((note-type
+	 (or (org-entry-get-with-inheritance
+	      anki-editor-prop-default-note-type)
+	     anki-editor-default-note-type
+	     (user-error "No default note type set"))))
+    (anki-editor-insert-note prefix note-type)))
+
+(defun anki-editor-set-note-type (&optional prefix note-type)
+  "Set note type for current or closest previous heading.
+With PREFIX set note type for all top-level headings in subtree.
+When NOTE-TYPE is nil, prompt for one."
+  (interactive "P")
+  (let ((note-type
+	 (or note-type
+	     (completing-read "Note type: " (sort
+					     (anki-editor-note-types)
+					     #'string-lessp))))
+	(level
+         (if prefix
+	     (+ 1 (or (org-current-level) 0))
+	   (or (org-current-level) 0))))
+    (org-map-entries
+     (lambda () (org-set-property anki-editor-prop-note-type note-type))
+     (concat "LEVEL=" (number-to-string level))
+     (if (and prefix
+	      (equal 1 level))
+	 nil
+       'tree))))
+
+(defun anki-editor-set-default-note-type (&optional prefix)
+  "Set default note type for current or closest previous heading.
+The note type is taken from the ANKI_DEFAULT_NOTE_TYPE property,
+with inheritance, or from `anki-editor-default-note-type'.
+Otherwise this command is like `anki-editor-set-note-type'."
+  (interactive "P")
+  (let ((note-type
+	 (or (org-entry-get-with-inheritance
+	      anki-editor-prop-default-note-type)
+	     anki-editor-default-note-type
+	     (user-error "No default note type set"))))
+  (anki-editor-set-note-type prefix note-type)))
 
 (defun anki-editor-cloze-region (&optional arg hint)
   "Cloze region with number ARG."
