@@ -660,8 +660,8 @@ see `anki-editor-insert-note' which wraps this function."
 				     (car x)
 				     (anki-editor--export-string (cdr x) format)))
 				  fields)))
-    (unless deck (error "Missing deck"))
-    (unless note-type (error "Missing note type"))
+    (unless deck (user-error "Missing deck"))
+    (unless note-type (user-error "Missing note type"))
     (make-anki-editor-note :id note-id
                            :model note-type
                            :deck deck
@@ -794,7 +794,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 					     nil nil #'string=)))))
       (cond ((equal 0 (length fields-missing))
 	     (when (< 0 (length fields-extra))
-	       (error "Failed to map all subheadings to a field.")))
+	       (user-error "Failed to map all subheadings to a field.")))
 	    ((equal 1 (length fields-missing))
 	     (if (equal 0 (length fields-extra))
 		 (if (equal "" (string-trim content-before-subheading))
@@ -855,7 +855,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 			       heading)
 			 fields)))))
 	    ((< 2 (length fields-missing))
-	     (error "Cannot map note fields: More than two fields missing.")))
+	     (user-error "Cannot map note fields: More than two fields missing.")))
       fields)))
 
 (defun anki-editor--concat-fields (field-names field-alist level)
@@ -1063,7 +1063,7 @@ inverts the value of `anki-editor-insert-note-always-use-content'."
 (defun anki-editor-cloze-region (&optional arg hint)
   "Cloze region with number ARG."
   (interactive "p\nsHint (optional): ")
-  (unless (region-active-p) (error "No active region"))
+  (unless (region-active-p) (user-error "No active region"))
   (anki-editor-cloze (region-beginning) (region-end) arg hint))
 
 (defun anki-editor-cloze-dwim (&optional arg hint)
@@ -1073,7 +1073,7 @@ inverts the value of `anki-editor-insert-note-always-use-content'."
    ((region-active-p) (anki-editor-cloze (region-beginning) (region-end) arg hint))
    ((thing-at-point 'word) (let ((bounds (bounds-of-thing-at-point 'word)))
                              (anki-editor-cloze (car bounds) (cdr bounds) arg hint)))
-   (t (error "Nothing to create cloze from"))))
+   (t (user-error "Nothing to create cloze from"))))
 
 (defun anki-editor-cloze (begin end arg hint)
   "Cloze region from BEGIN to END with number ARG."
@@ -1112,7 +1112,7 @@ inverts the value of `anki-editor-insert-note-always-use-content'."
     (if (<= anki-editor-api-version ver)
         (when (called-interactively-p 'interactive)
           (message "AnkiConnect v.%d is running" ver))
-      (error "anki-editor requires minimal version %d of AnkiConnect installed"
+      (user-error "anki-editor requires minimal version %d of AnkiConnect installed"
              anki-editor-api-version))))
 
 (defun anki-editor-sync-collections ()
