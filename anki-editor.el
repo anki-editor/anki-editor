@@ -974,8 +974,23 @@ When you have fixed those issues, try re-push the failed ones with `anki-editor-
              finally do (setq anki-editor--note-markers nil))))
 
 (defun anki-editor-push-note-at-point ()
+  "Push note at point to Anki.
+
+If point is not at a heading with an `ANKI_NOTE_TYPE' property,
+go up one heading at a time, until heading level 1, and push the
+subtree associated with the first heading that has one."
   (interactive)
-  (anki-editor--push-note (anki-editor-note-at-point)))
+  (save-excursion
+    (let ((note-type))
+      (while
+	  (and (org-back-to-heading)
+	       (not (setq note-type
+			  (org-entry-get nil anki-editor-prop-note-type)))
+	       (org-up-heading-safe)))
+      (if (not note-type)
+	  (user-error "No note to push found.")
+	(anki-editor--push-note (anki-editor-note-at-point))
+	(message "Successfully pushed note at point to Anki.")))))
 
 (defun anki-editor-push-new-notes (&optional scope)
   "Push note entries without ANKI_NOTE_ID in SCOPE to Anki."
