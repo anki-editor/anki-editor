@@ -123,6 +123,12 @@ For example, you can put custom styles or scripts in this variable."
 A leading logical operator like `+' or `&' is required."
   :type 'string)
 
+(defcustom anki-editor-prepend-note-heading nil
+  "Prepend note heading to contents before first (sub)heading.
+This is only in effect when exactly one note-type field is not found
+among the note subheadings and there is content before the first subheading."
+  :type 'boolean)
+
 
 ;;; AnkiConnect
 
@@ -776,18 +782,33 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 		 (if (equal "" (string-trim content-before-subheading))
 		     (push (cons (car fields-missing) heading)
 			   fields)
-		   (push (cons (car fields-missing) content-before-subheading)
-			 fields))
+		   (if anki-editor-prepend-note-heading
+		       (push (cons (car fields-missing)
+				   (concat heading "\n\n"
+					   content-before-subheading))
+			     fields)
+		     (push (cons (car fields-missing)
+				 content-before-subheading)
+			   fields)))
 	       (if (equal "" (string-trim content-before-subheading))
 		   (push (cons (car fields-missing)
 			       (anki-editor--concat-fields
 				fields-extra subheading-fields level))
 			 fields)
-		 (push (cons (car fields-missing)
-			     (concat content-before-subheading
-				     (anki-editor--concat-fields
-				      fields-extra subheading-fields level)))
-		       fields))))
+		 (if anki-editor-prepend-note-heading
+		     (push (cons (car fields-missing)
+				 (concat heading "\n\n"
+					 content-before-subheading
+					 (anki-editor--concat-fields
+					  fields-extra subheading-fields
+					  level)))
+			   fields)
+		   (push (cons (car fields-missing)
+			       (concat content-before-subheading
+				       (anki-editor--concat-fields
+					fields-extra subheading-fields
+					level)))
+			 fields)))))
 	    ((equal 2 (length fields-missing))
 	     (if (equal 0 (length fields-extra))
 		 (progn
