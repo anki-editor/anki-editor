@@ -491,12 +491,13 @@ A leading logical operator like `+' or `&' is required in MATCH."
   ;; disable property inheritance temporarily, or all subheadings of a
   ;; note heading will be counted as note headings as well
   (let ((org-use-property-inheritance nil))
-    (org-map-entries func
-                     (concat "+" anki-editor-prop-note-type "<>\"\""
-                             match
-                             anki-editor-note-match)
-                     scope
-                     skip)))
+    (apply #'org-map-entries
+	   func
+	   (concat "+" anki-editor-prop-note-type "<>\"\""
+		   match
+		   anki-editor-note-match)
+	   scope
+	   skip)))
 
 (defun anki-editor--insert-note-skeleton (prefix deck heading type fields)
   "Insert a note subtree (skeleton) with HEADING, TYPE and FIELDS.
@@ -646,7 +647,7 @@ see `anki-editor-insert-note' which wraps this function."
   (read (or (org-entry-get-with-inheritance anki-editor-prop-format t) "t")))
 
 (defun anki-editor-toggle-format ()
-  "Cycle ANKI_FROMAT through \"nil\" and \"t\"."
+  "Cycle ANKI_FORMAT through \"nil\" and \"t\"."
   (interactive)
   (let ((val (pcase (org-entry-get nil anki-editor-prop-format nil t)
                ('nil "nil")
@@ -960,15 +961,15 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
            (length anki-editor--note-markers) (buffer-name) (point))
   (push (point-marker) anki-editor--note-markers))
 
-(defun anki-editor-push-notes (&optional scope match)
+(defun anki-editor-push-notes (&optional scope match &rest skip)
   "Build notes from headings that MATCH within SCOPE and push them to Anki.
 
 The default search condition `&ANKI_NOTE_TYPE<>\"\"' will always
 be appended to MATCH.
 
 For notes that already exist in Anki (i.e. has `ANKI_NOTE_ID'
-property), only their fields and tags will be updated, change of
-deck or note type are currently not supported.
+property), only their fields, tags and deck will be updated,
+change of note type is currently not supported.
 
 If SCOPE is not specified, the following rules are applied to
 determine the scope:
@@ -990,8 +991,8 @@ of that heading."
                       (t nil))))
   (unwind-protect
       (progn
-        (anki-editor-map-note-entries
-	 #'anki-editor--collect-note-marker match scope)
+        (apply #'anki-editor-map-note-entries
+	       #'anki-editor--collect-note-marker match scope skip)
         (setq anki-editor--note-markers (reverse anki-editor--note-markers))
         (let ((count 0)
               (failed 0))
