@@ -1234,10 +1234,11 @@ Otherwise this command is like `anki-editor-set-note-type'."
       (user-error "anki-editor requires at least version %d of AnkiConnect"
 		  anki-editor-api-version))))
 
-(defun anki-editor-sync-collections ()
-  "Synchronizes the local Anki collections with AnkiWeb."
+(defun anki-editor-sync-collection ()
+  "Synchronize the local Anki collection with AnkiWeb."
   (interactive)
-  (anki-editor-api-call-result 'sync))
+  (anki-editor-api-call-result 'sync)
+  (message "Synced local Anki collection with AnkiWeb."))
 
 (defun anki-editor-gui-browse (&optional query)
   "Open Anki Browser with QUERY.
