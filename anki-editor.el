@@ -938,6 +938,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 (define-minor-mode anki-editor-mode
   "A minor mode for making Anki cards with Org."
   :lighter " anki-editor"
+  :keymap (make-sparse-keymap)
   (if anki-editor-mode (anki-editor-setup-minor-mode)
     (anki-editor-teardown-minor-mode)))
 
