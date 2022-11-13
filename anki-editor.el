@@ -128,6 +128,10 @@ See `anki-editor-insert-note', whose behavior this controls."
 Only used when no ANKI_DEFAULT_NOTE_TYPE property is inherited."
   :type 'string)
 
+(defcustom anki-editor-gui-browse-ensure-foreground t
+  "Ensure that `anki-editor-gui-browse' opens in foreground."
+  :type 'boolean)
+
 
 ;;; AnkiConnect
 
@@ -1245,7 +1249,9 @@ note or deck."
       (_ (format "deck:%s"
                  (or (org-entry-get-with-inheritance anki-editor-prop-deck)
                      "current"))))))
-  (anki-editor-api-call 'guiBrowse :query (or query "")))
+  (anki-editor-api-call 'guiBrowse :query (or query ""))
+  (when anki-editor-gui-browse-ensure-foreground
+    (anki-editor-api-call 'guiBrowse :query (or query ""))))
 
 (defun anki-editor-gui-add-cards ()
   "Open Anki Add Cards dialog with presets from current note entry."
