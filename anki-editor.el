@@ -1083,19 +1083,39 @@ matching non-empty `ANKI_FAILURE_REASON' properties."
   (anki-editor-push-notes scope
 			  (concat anki-editor-prop-failure-reason "<>\"\"")))
 
-(defun anki-editor-delete-notes (noteids)
-  "Delete notes in NOTEIDS or the note at point."
-  (interactive (list (list (org-entry-get nil anki-editor-prop-note-id))))
-  (when (or (not (called-interactively-p 'interactive))
-            (yes-or-no-p
-	     (format (concat "Do you really want to delete note %s? "
-			     "This can't be undone.")
-		     (nth 0 noteids))))
-    (anki-editor-api-call-result 'deleteNotes
-                                 :notes noteids)
-    (org-entry-delete nil anki-editor-prop-note-id)
-    (when (called-interactively-p 'interactive)
-      (message "Deleted note %s" (nth 0 noteids)))))
+(defun anki-editor-delete-note-at-point (&optional prefix)
+  "Delete the note at point from Anki.
+With PREFIX also delete it from Org."
+  (interactive "P")
+  (save-excursion
+    (let (note-type note-id)
+      (while
+	  (and (org-back-to-heading)
+	       (not (setq note-type
+			  (org-entry-get nil anki-editor-prop-note-type)))
+	       (org-up-heading-safe)))
+      (when (not note-type)
+	(user-error "No note to delete found"))
+      (setq note-id (condition-case nil
+			(string-to-number
+			 (org-entry-get nil anki-editor-prop-note-id))
+		      (error nil)))
+      (if (not note-id)
+	  (if prefix
+	      (message "Note at point is not in Anki (no note-id)")
+	    (user-error "Note at point is not in Anki (no note-id)"))
+	(when (yes-or-no-p
+	       (format (concat "Do you really want to delete note %s "
+			       "from Anki?")
+		       note-id))
+	  (anki-editor-api-call-result 'deleteNotes
+				       :notes (list note-id))
+	  (org-entry-delete nil anki-editor-prop-note-id)
+	  (message "Deleted note %s from Anki" note-id)))
+      (when prefix
+	(org-mark-subtree)
+	(kill-region nil nil t)
+	(message "Deleted note at point from Org")))))
 
 (defun anki-editor-insert-note (&optional prefix note-type)
   "Insert a note interactively.
