@@ -1,3 +1,4 @@
+#+OPTIONS: toc:3
 * anki-editor
 
 anki-editor is an [[https://www.gnu.org/software/emacs/emacs.html][Emacs]] minor for making [[https://apps.ankiweb.net][Anki]] cards with [[https://orgmode.org][Org]].
@@ -9,7 +10,7 @@ This repository contains a fork of [[https://github.com/louietan/anki-editor][lo
 
 *** External dependencies
 
-Other than Emacs you need [[https://apps.ankiweb.net][Anki]], its [[https://github.com/FooSoft/anki-connect][AnkiConnect]] add-on, and [[https://curl.se][curl]] to use anki-editor.
+Other than Emacs you need [[https://apps.ankiweb.net][Anki]], its [[https://github.com/FooSoft/anki-connect][AnkiConnect]] add-on, and [[https://curl.se][curl]] to use anki-editor. Because of AnkiConnect, anki-editor-mode needs Anki to be running (see [[https://github.com/orgtre/anki-editor/issues/5#issuecomment-1295857747][issue]] for explanation).
 
 *** Using package.el
 
@@ -23,9 +24,9 @@ You can also first visit =anki-editor.el= in an Emacs buffer and then type =M-x 
 
 If you're using [[https://github.com/radian-software/straight.el][straight.el]] as package manager, install by adding this to your =init.el=:
 #+begin_src elisp
-(use-package anki-editor  
-  :straight (:host github :repo "orgtre/anki-editor")
-  :commands anki-editor-mode)
+(use-package anki-editor
+  :defer t
+  :straight (:fork "orgtre"))
 #+end_src
 
 ** Usage
@@ -51,6 +52,32 @@ If you're using [[https://github.com/radian-software/straight.el][straight.el]] 
         (it's) raining cats and dogs
      ,** Back
         it's raining very hard
+     ,* Is there a shorter way to write notes?
+        :PROPERTIES:
+        :ANKI_NOTE_TYPE: Basic
+        :END:
+
+      ,** Back
+
+        Yes, like this one, Front is missing, ~anki-editor~ will use note
+        heading as Front.  This is neat as sometimes it's verbose to repeat
+        the same content in note heading and first field.
+
+        This works for all note types, just make one field absent and
+        ~anki-editor~ will use note heading as that missing field.
+     
+     ,* Is there a an even shorter way to write notes?
+        :PROPERTIES:
+        :ANKI_NOTE_TYPE: Basic
+        :END:
+        
+        Yes, like this one, Front and Back is missing, ~anki-editor~ will use note
+        heading as Front and the text after as Back.  This is neat as sometimes it's verbose to repeat
+        the same content in note heading and first field.
+
+        This works for all note types, just make the first 2 fields absent and
+        ~anki-editor~ will use note heading as first field and the text below the heading as second field.
+
    #+END_SRC
 
    - Anki deck is provided by ~ANKI_DECK~ property.  This property is
@@ -75,6 +102,7 @@ and ~@~ in a tag but Anki allows more, so you may have to edit you
 Anki tags before they can be used in Org without any surprise.
 
 *** Commands
+To see the docs for the most recent commands use M-x describe-function (for more info see [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Name-Help.html][Emacs Manual - Help Commands]])
 
    | Command                            | Description                                                                                                                    |
    |------------------------------------+--------------------------------------------------------------------------------------------------------------------------------|
@@ -93,6 +121,7 @@ Anki tags before they can be used in Org without any surprise.
    | anki-editor-gui-add-cards          | Open Anki Add Cards dialog with presets from current note entry.                                                               |
 
 *** Variables
+To see the docs for the most recent commands use M-x describe-variable (for more info see [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Name-Help.html][Emacs Manual - Help Commands]])
 
    | Name                                          | Default Value          | Description                                                                                              |
    |-----------------------------------------------+------------------------+----------------------------------------------------------------------------------------------------------|
@@ -179,6 +208,13 @@ Anki tags before they can be used in Org without any surprise.
    This package might not work well with certain Anki add-ons
    especially those who extend the builtin Anki note editor to
    automatically fill note field content (e.g. ~Add note id~).
+
+*** One Way Sync with Anki
+To sync anki notes and decks to org see ([[https://github.com/orgtre/ankiorg][orgtre/ankiorg]]).
+
+The following items are not synchronized to org:
+ - Deletion of Notes
+ - Deck Changes
 
 ** Demo
 
