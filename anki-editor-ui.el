@@ -69,7 +69,8 @@
    [""
     ("H" " region to html" anki-editor-convert-region-to-html :level 4)    
     ("R" " remove styles" anki-editor-remove-styles :level 4)
-    ""]])
+    ("P" " toggle prepend heading" anki-editor-toggle-prepend-heading
+     :level 4)]])
 
 (transient-define-prefix anki-editor-ui-push ()
   "Transient for pushing anki-editor notes."

@@ -112,7 +112,7 @@ Can be used to add custom styles and scripts to card styles."
 A leading logical operator like `+' or `&' is required."
   :type 'string)
 
-(defcustom anki-editor-prepend-note-heading nil
+(defcustom anki-editor-prepend-heading nil
   "Prepend note heading to contents before first (sub)heading.
 This is only in effect when exactly one note-type field is not found
 among the note subheadings and there is content before the first subheading."
@@ -434,8 +434,9 @@ The implementation is borrowed and simplified from ox-html."
 
 (defconst anki-editor-prop-note-type "ANKI_NOTE_TYPE")
 (defconst anki-editor-prop-note-id "ANKI_NOTE_ID")
-(defconst anki-editor-prop-format "ANKI_FORMAT")
 (defconst anki-editor-prop-deck "ANKI_DECK")
+(defconst anki-editor-prop-format "ANKI_FORMAT")
+(defconst anki-editor-prop-prepend-heading "ANKI_PREPEND_HEADING")
 (defconst anki-editor-prop-tags "ANKI_TAGS")
 (defconst anki-editor-prop-tags-plus (concat anki-editor-prop-tags "+"))
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
@@ -608,8 +609,11 @@ see `anki-editor-insert-note' which wraps this function."
     ((pred (string= anki-editor-prop-deck)) (anki-editor-deck-names))
     ((pred (string= anki-editor-prop-note-type)) (anki-editor-note-types))
     ((pred (string= anki-editor-prop-format)) (list "t" "nil"))
+    ((pred (string= anki-editor-prop-prepend-heading)) (list "t" "nil"))
     ((pred (string-match-p (format "%s\\+?" anki-editor-prop-tags)))
      (anki-editor-all-tags))
+    ((pred (string= anki-editor-prop-default-note-type))
+     (anki-editor-note-types))
     (_ nil)))
 
 (defun anki-editor-is-valid-org-tag (tag)
@@ -651,22 +655,59 @@ see `anki-editor-insert-note' which wraps this function."
   (read (or (org-entry-get-with-inheritance anki-editor-prop-format t) "t")))
 
 (defun anki-editor-toggle-format ()
-  "Cycle ANKI_FORMAT through \"nil\" and \"t\"."
+  "Toggle format setting for entry at point.
+Only set a property value at entry if necessary for toggling.
+The setting is read with inheritance from the property
+`anki-editor-prop-format' if it exists, and is t else."
   (interactive)
-  (let ((val (pcase (org-entry-get nil anki-editor-prop-format nil t)
-               ('nil "nil")
-               ("nil" "t")
-               ("t" nil)
-               (_ "nil"))))
-    (if val
-        (org-entry-put nil anki-editor-prop-format val)
-      (org-entry-delete nil anki-editor-prop-format))))
+  (let ((initial-val (anki-editor-entry-format))
+	(entry-val (org-entry-get nil anki-editor-prop-format nil t))
+	inherited-val)
+    (when entry-val
+      (org-entry-delete nil anki-editor-prop-format)
+      (setq inherited-val (anki-editor-entry-format)))
+    (when (not entry-val)
+      (setq inherited-val initial-val))
+    (unless (equal inherited-val (not initial-val))
+      (org-entry-put nil anki-editor-prop-format
+		     (symbol-name (not initial-val))))))
+
+(defun anki-editor-prepend-heading ()
+  "Get prepend-heading setting for entry at point.
+The setting is read with inheritance from the property
+`anki-editor-prop-prepend-heading' if it exists,
+and else from variable `anki-editor-prepend-heading'."
+  (let ((p (or (org-entry-get-with-inheritance
+                anki-editor-prop-prepend-heading t)
+               anki-editor-prepend-heading
+               nil)))
+    (if (symbolp p) p (intern p))))
+
+(defun anki-editor-toggle-prepend-heading ()
+  "Toggle prepend-heading setting for entry at point.
+Only set a property value at entry if necessary for toggling.
+The setting is read with inheritance from the property
+`anki-editor-prop-prepend-heading' if it exists,
+and else from variable `anki-editor-prepend-heading'."
+  (interactive)
+  (let ((initial-val (anki-editor-prepend-heading))
+	(entry-val (org-entry-get nil anki-editor-prop-prepend-heading nil t))
+	inherited-val)
+    (when entry-val
+      (org-entry-delete nil anki-editor-prop-prepend-heading)
+      (setq inherited-val (anki-editor-prepend-heading)))
+    (when (not entry-val)
+      (setq inherited-val initial-val))
+    (unless (equal inherited-val (not initial-val))
+      (org-entry-put nil anki-editor-prop-prepend-heading
+		     (symbol-name (not initial-val))))))
 
 (defun anki-editor-note-at-point ()
   "Make a note struct from current entry."
   (let* ((org-trust-scanner-tags t)
          (deck (org-entry-get-with-inheritance anki-editor-prop-deck))
          (format (anki-editor-entry-format))
+	 (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
          (note-type (org-entry-get nil anki-editor-prop-note-type))
          (tags (cl-set-difference (anki-editor--get-tags)
@@ -681,7 +722,8 @@ see `anki-editor-insert-note' which wraps this function."
 					  content-before-subheading
 					  subheading-fields
 					  note-type
-					  level))
+					  level
+					  prepend-heading))
 	 (exported-fields (mapcar (lambda (x)
 				    (cons
 				     (car x)
@@ -802,7 +844,8 @@ Leading whitespace, drawers, and planning content is skipped."
 				content-before-subheading
 				subheading-fields
 				note-type
-				level)
+				level
+				prepend-heading)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
@@ -839,7 +882,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 		 (if (equal "" (string-trim content-before-subheading))
 		     (push (cons (car fields-missing) heading)
 			   fields)
-		   (if anki-editor-prepend-note-heading
+		   (if prepend-heading
 		       (push (cons (car fields-missing)
 				   (concat heading "\n\n"
 					   content-before-subheading))
@@ -852,7 +895,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 			       (anki-editor--concat-fields
 				fields-extra subheading-fields level))
 			 fields)
-		 (if anki-editor-prepend-note-heading
+		 (if prepend-heading
 		     (push (cons (car fields-missing)
 				 (concat heading "\n\n"
 					 content-before-subheading
@@ -894,8 +937,8 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 			       heading)
 			 fields)))))
 	    ((< 2 (length fields-missing))
-	     (user-error (concaat "Cannot map note fields: "
-				  "more than two fields missing"))))
+	     (user-error (concat "Cannot map note fields: "
+				 "more than two fields missing"))))
       fields)))
 
 (defun anki-editor--concat-fields (field-names field-alist level)
