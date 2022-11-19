@@ -118,6 +118,11 @@ This is only in effect when exactly one note-type field is not found
 among the note subheadings and there is content before the first subheading."
   :type 'boolean)
 
+(defcustom anki-editor-prepend-heading-format "/%s/\n\n"
+  "Format string used when prepending note heading.
+It should contain `%s' as placeholder for the heading, see `format'."
+  :type 'string)
+
 (defcustom anki-editor-insert-note-always-use-content nil
   "Whether to always make use of content before (sub)heading.
 See `anki-editor-insert-note', whose behavior this controls."
@@ -713,7 +718,7 @@ and else from variable `anki-editor-prepend-heading'."
          (tags (cl-set-difference (anki-editor--get-tags)
                                   anki-editor-ignored-org-tags
                                   :test #'string=))
-	 (heading (substring-no-properties (org-get-heading t t t)))
+	 (heading (substring-no-properties (org-get-heading t t t t)))
 	 (level (org-current-level))
 	 (content-before-subheading
 	  (anki-editor--note-contents-before-subheading))
@@ -873,7 +878,8 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 	   (fields (cl-loop for f in fields-matching
 			    collect (cons f (alist-get
 					     f subheading-fields
-					     nil nil #'string=)))))
+					     nil nil #'string=))))
+	   (heading-format anki-editor-prepend-heading-format))
       (cond ((equal 0 (length fields-missing))
 	     (when (< 0 (length fields-extra))
 	       (user-error "Failed to map all subheadings to a field")))
@@ -884,8 +890,9 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 			   fields)
 		   (if prepend-heading
 		       (push (cons (car fields-missing)
-				   (concat heading "\n\n"
-					   content-before-subheading))
+				   (concat
+				    (format heading-format heading)
+				    content-before-subheading))
 			     fields)
 		     (push (cons (car fields-missing)
 				 content-before-subheading)
@@ -897,11 +904,12 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 			 fields)
 		 (if prepend-heading
 		     (push (cons (car fields-missing)
-				 (concat heading "\n\n"
-					 content-before-subheading
-					 (anki-editor--concat-fields
-					  fields-extra subheading-fields
-					  level)))
+				 (concat
+				  (format heading-format heading)
+				  content-before-subheading
+				  (anki-editor--concat-fields
+				   fields-extra subheading-fields
+				   level)))
 			   fields)
 		   (push (cons (car fields-missing)
 			       (concat content-before-subheading
