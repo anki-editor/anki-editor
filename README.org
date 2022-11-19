@@ -1,9 +1,15 @@
-#+OPTIONS: toc:3
 * anki-editor
 
-anki-editor is an [[https://www.gnu.org/software/emacs/emacs.html][Emacs]] minor for making [[https://apps.ankiweb.net][Anki]] cards with [[https://orgmode.org][Org]].
+anki-editor is an [[https://www.gnu.org/software/emacs/emacs.html][Emacs]] minor mode for making [[https://apps.ankiweb.net][Anki]] cards with [[https://orgmode.org][Org Mode]].
 
-This repository contains a fork of [[https://github.com/louietan/anki-editor][louietan/anki-editor]]. So far the main difference is that the changes in the develop branch of the original have been merged into the master branch. See the unreleased section of [[https://github.com/orgtre/anki-editor/blob/master/Changelog.org][Changelog.org]] for a list of the new features that come with this. Additionally, a more flexible note structure, outlined [[https://github.com/eyeinsky/org-anki/issues/48#issuecomment-1216625730][here]], has been introduced. See the [[https://github.com/louietan/anki-editor/compare/master...orgtre:anki-editor:master][commit log]] for a full list of differences.
+This repository is a fork of [[https://github.com/louietan/anki-editor][louietan/anki-editor]]. By now there are quite a few differences and extensions compared to the original: 
+- The develop branch of the original has been merged into the master branch; see the unreleased section of [[https://github.com/orgtre/anki-editor/blob/master/Changelog.org][Changelog.org]] for a list of the new features that come with this.
+- Almost all outstanding pull requests to the original have been integrated; [[https://github.com/orgtre/anki-editor/issues/10][this issue]] tracks the two exceptions.
+- A more flexible note structure, outlined [[https://github.com/eyeinsky/org-anki/issues/48#issuecomment-1216625730][here]], has been introduced.
+- The commands to push notes, delete notes, and insert notes have been improved.
+- A [[https://github.com/orgtre/anki-editor/issues/13][transient interface]] to all commands has been created.
+
+See the [[https://github.com/louietan/anki-editor/compare/master...orgtre:anki-editor:master][commit log]] for a full list of differences. Note that this README does not reflect all the changes and additions yet.
 
 
 ** Installation
