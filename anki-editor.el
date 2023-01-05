@@ -709,8 +709,7 @@ and else from variable `anki-editor-prepend-heading'."
 
 (defun anki-editor-note-at-point ()
   "Make a note struct from current entry."
-  (let* ((org-trust-scanner-tags t)
-         (deck (org-entry-get-with-inheritance anki-editor-prop-deck))
+  (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
          (format (anki-editor-entry-format))
 	 (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
@@ -744,6 +743,7 @@ and else from variable `anki-editor-prepend-heading'."
                            :fields exported-fields)))
 
 (defun anki-editor--get-tags ()
+  "Return list of tags of org entry at point."
   (let ((tags (anki-editor--entry-get-multivalued-property-with-inheritance
                nil
                anki-editor-prop-tags)))
