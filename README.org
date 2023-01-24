@@ -63,7 +63,7 @@ If you're using [[https://github.com/radian-software/straight.el][straight.el]] 
         :ANKI_NOTE_TYPE: Basic
         :END:
 
-      ,** Back
+     ,** Back
 
         Yes, like this one, Front is missing, ~anki-editor~ will use note
         heading as Front.  This is neat as sometimes it's verbose to repeat
@@ -71,12 +71,12 @@ If you're using [[https://github.com/radian-software/straight.el][straight.el]] 
 
         This works for all note types, just make one field absent and
         ~anki-editor~ will use note heading as that missing field.
-     
+
      ,* Is there a an even shorter way to write notes?
         :PROPERTIES:
         :ANKI_NOTE_TYPE: Basic
         :END:
-        
+
         Yes, like this one, Front and Back is missing, ~anki-editor~ will use note
         heading as Front and the text after as Back.  This is neat as sometimes it's verbose to repeat
         the same content in note heading and first field.
