@@ -442,6 +442,8 @@ The implementation is borrowed and simplified from ox-html."
 (defconst anki-editor-prop-deck "ANKI_DECK")
 (defconst anki-editor-prop-format "ANKI_FORMAT")
 (defconst anki-editor-prop-prepend-heading "ANKI_PREPEND_HEADING")
+(defconst anki-editor-prop-field-prefix "ANKI_FIELD_"
+  "Anki fields with names got from an org-node property.")
 (defconst anki-editor-prop-tags "ANKI_TAGS")
 (defconst anki-editor-prop-tags-plus (concat anki-editor-prop-tags "+"))
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
@@ -806,6 +808,15 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              do (org-forward-heading-same-level nil t)
              until (= last-pt (point)))))
 
+(defun anki-editor--property-fields (fields)
+  "Extract Anki FIELDS from properties starting with ANKI_FIELD_."
+
+  (cl-loop for field in fields
+           for property = (concat anki-editor-prop-field-prefix (upcase field))
+           for property-value = (org-entry-get-with-inheritance property)
+           when property-value
+           collect (cons field property-value)))
+
 (defun anki-editor--note-contents-before-subheading ()
   "Get content between heading at point and next sub/heading.
 
@@ -857,10 +868,12 @@ When the `subheading-fields' don't match the `note-type's fields,
 map missing fields to the `heading' and/or `content-before-subheading'.
 Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (anki-editor--with-collection-data-updated
-    (let* ((fields-matching (cl-intersection
-			     (alist-get note-type
-					anki-editor--model-fields
-					nil nil #'string=)
+    (let* ((model-fields (alist-get note-type
+					                anki-editor--model-fields
+					                nil nil #'string=))
+           (property-fields (anki-editor--property-fields model-fields))
+           (all-fields (append subheading-fields property-fields))
+           (fields-matching (cl-intersection
 			     (mapcar #'car subheading-fields)
 			     :test #'string=))
 	   (fields-missing (cl-set-difference
@@ -877,7 +890,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 			  :test #'string=))
 	   (fields (cl-loop for f in fields-matching
 			    collect (cons f (alist-get
-					     f subheading-fields
+					     f all-fields
 					     nil nil #'string=))))
 	   (heading-format anki-editor-prepend-heading-format))
       (cond ((equal 0 (length fields-missing))
