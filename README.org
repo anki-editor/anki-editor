@@ -2,7 +2,7 @@
 
 anki-editor is an [[https://www.gnu.org/software/emacs/emacs.html][Emacs]] minor mode for making [[https://apps.ankiweb.net][Anki]] cards with [[https://orgmode.org][Org Mode]].
 
-This repository is a fork of [[https://github.com/louietan/anki-editor][louietan/anki-editor]]. By now there are quite a few differences and extensions compared to the original: 
+This repository is a fork of [[https://github.com/louietan/anki-editor][louietan/anki-editor]]. By now there are quite a few differences and extensions compared to the original:
 - The develop branch of the original has been merged into the master branch; see the unreleased section of [[https://github.com/orgtre/anki-editor/blob/master/Changelog.org][Changelog.org]] for a list of the new features that come with this.
 - Almost all outstanding pull requests to the original have been integrated; [[https://github.com/orgtre/anki-editor/issues/10][this issue]] tracks the two exceptions.
 - A more flexible note structure, outlined [[https://github.com/eyeinsky/org-anki/issues/48#issuecomment-1216625730][here]], has been introduced.
@@ -20,7 +20,7 @@ Other than Emacs you need [[https://apps.ankiweb.net][Anki]], its [[https://gith
 
 *** Using package.el
 
-If you're using the built-in =package.el= package manager, first manually download this repository and then type the following in Emacs: 
+If you're using the built-in =package.el= package manager, first manually download this repository and then type the following in Emacs:
 
 : M-x package-install-file [RET] "path/to/anki-editor.el" [RET]
 
@@ -84,6 +84,19 @@ If you're using [[https://github.com/radian-software/straight.el][straight.el]] 
         This works for all note types, just make the first 2 fields absent and
         ~anki-editor~ will use note heading as first field and the text below the heading as second field.
 
+     ,* You can extract a field value from an org-property
+        :PROPERTIES:
+        :ANKI_NOTE_TYPE: Basic
+        :ANKI_FIELD_FRONT: Can one define an anki-field inside an org-mode property?
+        :ANKI_PREPEND_HEADING: nil
+        :END:
+
+        Yes. In this example, =anki-editor=  will use the =ANKI_FIELD_FRONT= property value as
+        a front side of the Anki card and the body of the card as its back.
+
+     ,** Front
+        Notice that property fields will override subheading fields.
+        This block will be skipped
    #+END_SRC
 
    - Anki deck is provided by ~ANKI_DECK~ property.  This property is
