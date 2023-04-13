@@ -442,6 +442,8 @@ The implementation is borrowed and simplified from ox-html."
 (defconst anki-editor-prop-deck "ANKI_DECK")
 (defconst anki-editor-prop-format "ANKI_FORMAT")
 (defconst anki-editor-prop-prepend-heading "ANKI_PREPEND_HEADING")
+(defconst anki-editor-prop-field-prefix "ANKI_FIELD_"
+  "Anki fields with names got from an org-node property.")
 (defconst anki-editor-prop-tags "ANKI_TAGS")
 (defconst anki-editor-prop-tags-plus (concat anki-editor-prop-tags "+"))
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
@@ -806,6 +808,14 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              do (org-forward-heading-same-level nil t)
              until (= last-pt (point)))))
 
+(defun anki-editor--property-fields (fields)
+  "Extract Anki FIELDS from entry properties."
+  (cl-loop for field in fields
+           for property = (concat anki-editor-prop-field-prefix (upcase field))
+           for property-value = (org-entry-get-with-inheritance property)
+           when property-value
+           collect (cons field property-value)))
+
 (defun anki-editor--note-contents-before-subheading ()
   "Get content between heading at point and next sub/heading.
 
@@ -857,97 +867,95 @@ When the `subheading-fields' don't match the `note-type's fields,
 map missing fields to the `heading' and/or `content-before-subheading'.
 Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (anki-editor--with-collection-data-updated
-    (let* ((fields-matching (cl-intersection
-			     (alist-get note-type
-					anki-editor--model-fields
-					nil nil #'string=)
-			     (mapcar #'car subheading-fields)
-			     :test #'string=))
-	   (fields-missing (cl-set-difference
-			    (alist-get note-type
-				       anki-editor--model-fields
-				       nil nil #'string=)
-			    (mapcar #'car subheading-fields)
-			    :test #'string=))
-	   (fields-extra (cl-set-difference
-			  (mapcar #'car subheading-fields)
-			  (alist-get note-type
-				     anki-editor--model-fields
-				     nil nil #'string=)
-			  :test #'string=))
-	   (fields (cl-loop for f in fields-matching
-			    collect (cons f (alist-get
-					     f subheading-fields
-					     nil nil #'string=))))
-	   (heading-format anki-editor-prepend-heading-format))
-      (cond ((equal 0 (length fields-missing))
-	     (when (< 0 (length fields-extra))
-	       (user-error "Failed to map all subheadings to a field")))
-	    ((equal 1 (length fields-missing))
-	     (if (equal 0 (length fields-extra))
-		 (if (equal "" (string-trim content-before-subheading))
-		     (push (cons (car fields-missing) heading)
-			   fields)
-		   (if prepend-heading
-		       (push (cons (car fields-missing)
-				   (concat
-				    (format heading-format heading)
-				    content-before-subheading))
-			     fields)
-		     (push (cons (car fields-missing)
-				 content-before-subheading)
-			   fields)))
-	       (if (equal "" (string-trim content-before-subheading))
-		   (push (cons (car fields-missing)
-			       (anki-editor--concat-fields
-				fields-extra subheading-fields level))
-			 fields)
-		 (if prepend-heading
-		     (push (cons (car fields-missing)
-				 (concat
-				  (format heading-format heading)
-				  content-before-subheading
-				  (anki-editor--concat-fields
-				   fields-extra subheading-fields
-				   level)))
-			   fields)
-		   (push (cons (car fields-missing)
-			       (concat content-before-subheading
-				       (anki-editor--concat-fields
-					fields-extra subheading-fields
-					level)))
-			 fields)))))
-	    ((equal 2 (length fields-missing))
-	     (if (equal 0 (length fields-extra))
-		 (progn
-		   (push (cons (nth 1 fields-missing)
-			       content-before-subheading)
-			 fields)
-		   (push (cons (car fields-missing)
-			       heading)
-			 fields))
-	       (if (equal "" (string-trim content-before-subheading))
-		   (progn
-		     (push (cons (nth 1 fields-missing)
+   (let* ((model-fields (alist-get
+                         note-type anki-editor--model-fields
+                         nil nil #'string=))
+          (property-fields (anki-editor--property-fields model-fields))
+          (named-fields (seq-uniq (append subheading-fields property-fields)
+                                  (lambda (left right)
+                                    (string= (car left) (car right)))))
+          (fields-matching (cl-intersection
+                            model-fields (mapcar #'car named-fields)
+                            :test #'string=))
+	  (fields-missing (cl-set-difference
+                           model-fields (mapcar #'car named-fields)
+			   :test #'string=))
+	  (fields-extra (cl-set-difference
+			 (mapcar #'car named-fields) model-fields
+			 :test #'string=))
+	  (fields (cl-loop for f in fields-matching
+			   collect (cons f (alist-get
+					    f named-fields
+					    nil nil #'string=))))
+	  (heading-format anki-editor-prepend-heading-format))
+     (cond ((equal 0 (length fields-missing))
+	    (when (< 0 (length fields-extra))
+	      (user-error "Failed to map all named fields")))
+	   ((equal 1 (length fields-missing))
+	    (if (equal 0 (length fields-extra))
+		(if (equal "" (string-trim content-before-subheading))
+		    (push (cons (car fields-missing) heading)
+			  fields)
+		  (if prepend-heading
+		      (push (cons (car fields-missing)
+				  (concat
+				   (format heading-format heading)
+				   content-before-subheading))
+			    fields)
+		    (push (cons (car fields-missing)
+				content-before-subheading)
+			  fields)))
+	      (if (equal "" (string-trim content-before-subheading))
+		  (push (cons (car fields-missing)
+			      (anki-editor--concat-fields
+			       fields-extra subheading-fields level))
+			fields)
+		(if prepend-heading
+		    (push (cons (car fields-missing)
+				(concat
+				 (format heading-format heading)
+				 content-before-subheading
 				 (anki-editor--concat-fields
-				  fields-extra subheading-fields level))
-			   fields)
-		     (push (cons (car fields-missing)
-				 heading)
-			   fields))
-		 (progn
-		   (push (cons (nth 1 fields-missing)
-			       (concat content-before-subheading
-				       (anki-editor--concat-fields
-					fields-extra subheading-fields level)))
-			 fields)
-		   (push (cons (car fields-missing)
-			       heading)
-			 fields)))))
-	    ((< 2 (length fields-missing))
-	     (user-error (concat "Cannot map note fields: "
-				 "more than two fields missing"))))
-      fields)))
+				  fields-extra subheading-fields
+				  level)))
+			  fields)
+		  (push (cons (car fields-missing)
+			      (concat content-before-subheading
+				      (anki-editor--concat-fields
+				       fields-extra subheading-fields
+				       level)))
+			fields)))))
+	   ((equal 2 (length fields-missing))
+	    (if (equal 0 (length fields-extra))
+		(progn
+		  (push (cons (nth 1 fields-missing)
+			      content-before-subheading)
+			fields)
+		  (push (cons (car fields-missing)
+			      heading)
+			fields))
+	      (if (equal "" (string-trim content-before-subheading))
+		  (progn
+		    (push (cons (nth 1 fields-missing)
+				(anki-editor--concat-fields
+				 fields-extra subheading-fields level))
+			  fields)
+		    (push (cons (car fields-missing)
+				heading)
+			  fields))
+		(progn
+		  (push (cons (nth 1 fields-missing)
+			      (concat content-before-subheading
+				      (anki-editor--concat-fields
+				       fields-extra subheading-fields level)))
+			fields)
+		  (push (cons (car fields-missing)
+			      heading)
+			fields)))))
+	   ((< 2 (length fields-missing))
+	    (user-error (concat "Cannot map note fields: "
+				"more than two fields missing"))))
+     fields)))
 
 (defun anki-editor--concat-fields (field-names field-alist level)
   "Concat field names and content of fields in list `field-names'."
