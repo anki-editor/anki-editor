@@ -429,18 +429,19 @@ If FMT is non-nil, format the exported string."
     (anki-editor--export-region src fmt)))
 
 (defun anki-editor--export-region (src fmt)
-    "Export region SRC and format it if FMT."
-    (cl-ecase fmt
-        ('nil (buffer-substring-no-properties (car src) (cdr src)))
-        ('t (save-mark-and-excursion
-              (set-mark (car src))
-              (goto-char (cdr src))
-              (activate-mark)
-              (or (org-export-as
-                   anki-editor--ox-anki-html-backend
-                   t
-                   anki-editor--ox-export-ext-plist))
-              ""))))
+  "Export region SRC and format it if FMT."
+  (cl-ecase fmt
+    ('nil (buffer-substring-no-properties (car src) (cdr src)))
+    ('t (save-window-excursion
+          (save-mark-and-excursion
+            (set-mark (car src))
+            (goto-char (car (cdr src)))
+            (or (org-export-as anki-editor--ox-anki-html-backend
+                               t
+                               nil
+                               t
+                               anki-editor--ox-export-ext-plist)
+            ""))))))
 
 (defun anki-editor--export-string (src fmt)
   "Export string SRC and format it if FMT."
@@ -867,14 +868,13 @@ Leading whitespace, drawers, and planning content is skipped."
 			 finally return (and eoh (org-element-property
 						  :begin nextelem))))
 	   (contents-raw (or (and begin
-				  end
-				  (buffer-substring-no-properties
-				   begin
-				   ;; in case the buffer is narrowed,
-				   ;; e.g. by `org-map-entries' when
-				   ;; scope is `tree'
-				   (min (point-max) end)))
-			     "")))
+				              end
+                              (list begin
+				                    ;; in case the buffer is narrowed,
+				                    ;; e.g. by `org-map-entries' when
+				                    ;; scope is `tree'
+				                    (min (point-max) end)))
+			             "")))
       contents-raw)))
 
 (defun anki-editor--map-fields (heading
