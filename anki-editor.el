@@ -822,7 +822,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                                       ;; e.g. by `org-map-entries' when
                                       ;; scope is `tree'
                                       (min (point-max) end)))
-                           (list 0 0))
+                           "")
              ;; for content = (anki-editor--export-string raw format)
              ;; collect (cons heading content)
 	     collect (cons heading raw)
