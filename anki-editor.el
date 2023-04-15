@@ -420,6 +420,29 @@ The implementation is borrowed and simplified from ox-html."
         (t (throw 'giveup nil)))))
    (funcall oldfun link desc info)))
 
+(defun anki-editor--export-field (src fmt)
+  "Export field as string if SRC is a string, otherwise export it as a region.
+
+If FMT is non-nil, format the exported string."
+  (let ((field-value (cdr src)))
+    (if (stringp field-value)
+        (anki-editor--export-string field-value fmt)
+        (anki-editor--export-region field-value fmt))))
+
+(defun anki-editor--export-region (src fmt)
+    "Export region SRC and format it if FMT."
+    (cl-ecase fmt
+        ('nil (buffer-substring-no-properties (car src) (cdr src)))
+        ('t (save-mark-and-excursion
+              (set-mark (car src))
+              (goto-char (cdr src))
+              (activate-mark)
+              (or (org-export-as
+                   anki-editor--ox-anki-html-backend
+                   t
+                   anki-editor--ox-export-ext-plist))
+              ""))))
+
 (defun anki-editor--export-string (src fmt)
   "Export string SRC and format it if FMT."
   (cl-ecase fmt
@@ -733,7 +756,7 @@ and else from variable `anki-editor-prepend-heading'."
 	 (exported-fields (mapcar (lambda (x)
 				    (cons
 				     (car x)
-				     (anki-editor--export-string (cdr x)
+				     (anki-editor--export-field (cdr x)
 								 format)))
 				  fields)))
     (unless deck (user-error "Missing deck"))
@@ -759,6 +782,7 @@ and else from variable `anki-editor-prepend-heading'."
   (let* ((value (org-entry-get pom property t))
 	 (values (and value (split-string value))))
     (mapcar #'org-entry-restore-space values)))
+
 
 (defun anki-editor--build-fields ()
   "Build a list of fields from subheadings of current heading.
@@ -793,13 +817,12 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              for end = (org-element-property :contents-end element)
              for raw = (or (and begin
                                 end
-                                (buffer-substring-no-properties
-                                 begin
-                                 ;; in case the buffer is narrowed,
-                                 ;; e.g. by `org-map-entries' when
-                                 ;; scope is `tree'
-                                 (min (point-max) end)))
-                           "")
+                                (list begin
+                                      ;; in case the buffer is narrowed,
+                                      ;; e.g. by `org-map-entries' when
+                                      ;; scope is `tree'
+                                      (min (point-max) end)))
+                           (list 0 0))
              ;; for content = (anki-editor--export-string raw format)
              ;; collect (cons heading content)
 	     collect (cons heading raw)
