@@ -424,10 +424,9 @@ The implementation is borrowed and simplified from ox-html."
   "Export field as string if SRC is a string, otherwise export it as a region.
 
 If FMT is non-nil, format the exported string."
-  (let ((field-value (cdr src)))
-    (if (stringp field-value)
-        (anki-editor--export-string field-value fmt)
-        (anki-editor--export-region field-value fmt))))
+  (if (stringp src)
+      (anki-editor--export-string src fmt)
+    (anki-editor--export-region src fmt)))
 
 (defun anki-editor--export-region (src fmt)
     "Export region SRC and format it if FMT."
