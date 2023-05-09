@@ -57,6 +57,7 @@
 (require 'org-element)
 (require 'ox)
 (require 'ox-html)
+(require 'ert)
 
 (defgroup anki-editor nil
   "Customizations for anki-editor."
@@ -877,121 +878,114 @@ Leading whitespace, drawers, and planning content is skipped."
 			             "")))
       contents-raw)))
 
+
 (defun anki-editor--map-fields (heading
-				content-before-subheading
-				subheading-fields
-				note-type
-				level
-				prepend-heading)
+				                content-before-subheading
+				                subheading-fields
+				                note-type
+				                level
+				                prepend-heading)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
 map missing fields to the `heading' and/or `content-before-subheading'.
 Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (anki-editor--with-collection-data-updated
-   (let* ((model-fields (alist-get
-                         note-type anki-editor--model-fields
-                         nil nil #'string=))
-          (property-fields (anki-editor--property-fields model-fields))
-          (named-fields (seq-uniq (append subheading-fields property-fields)
-                                  (lambda (left right)
-                                    (string= (car left) (car right)))))
-          (fields-matching (cl-intersection
+    (let* ((model-fields (alist-get
+                          note-type anki-editor--model-fields
+                          nil nil #'string=))  ; Fields Anki wants to be in the note
+           (property-fields (anki-editor--property-fields model-fields))  ; Fields defined in the property
+           (named-fields (seq-uniq (append subheading-fields property-fields)
+                                   (lambda (left right)
+                                     (string= (car left) (car right)))))
+           (fields-matching (cl-intersection
+                             model-fields (mapcar #'car named-fields)
+                             :test #'string=))  ; Fields that match the model
+	       (fields-missing (cl-set-difference
                             model-fields (mapcar #'car named-fields)
-                            :test #'string=))
-	  (fields-missing (cl-set-difference
-                           model-fields (mapcar #'car named-fields)
-			   :test #'string=))
-	  (fields-extra (cl-set-difference
-			 (mapcar #'car named-fields) model-fields
-			 :test #'string=))
-	  (fields (cl-loop for f in fields-matching
-			   collect (cons f (alist-get
-					    f named-fields
-					    nil nil #'string=))))
-	  (heading-format anki-editor-prepend-heading-format))
-     (cond ((equal 0 (length fields-missing))
-	    (when (< 0 (length fields-extra))
-	      (user-error "Failed to map all named fields")))
-	   ((equal 1 (length fields-missing))
-	    (if (equal 0 (length fields-extra))
-		(if (equal "" (string-trim content-before-subheading))
-		    (push (cons (car fields-missing) heading)
-			  fields)
-		  (if prepend-heading
-		      (push (cons (car fields-missing)
-				  (concat
-				   (format heading-format heading)
-				   content-before-subheading))
-			    fields)
-		    (push (cons (car fields-missing)
-				content-before-subheading)
-			  fields)))
-	      (if (equal "" (string-trim content-before-subheading))
-		  (push (cons (car fields-missing)
-			      (anki-editor--concat-fields
-			       fields-extra subheading-fields level))
-			fields)
-		(if prepend-heading
-		    (push (cons (car fields-missing)
-				(concat
-				 (format heading-format heading)
-				 content-before-subheading
-				 (anki-editor--concat-fields
-				  fields-extra subheading-fields
-				  level)))
-			  fields)
-		  (push (cons (car fields-missing)
-			      (concat content-before-subheading
-				      (anki-editor--concat-fields
-				       fields-extra subheading-fields
-				       level)))
-			fields)))))
-	   ((equal 2 (length fields-missing))
-	    (if (equal 0 (length fields-extra))
-		(progn
-		  (push (cons (nth 1 fields-missing)
-			      content-before-subheading)
-			fields)
-		  (push (cons (car fields-missing)
-			      heading)
-			fields))
-	      (if (equal "" (string-trim content-before-subheading))
-		  (progn
-		    (push (cons (nth 1 fields-missing)
-				(anki-editor--concat-fields
-				 fields-extra subheading-fields level))
-			  fields)
-		    (push (cons (car fields-missing)
-				heading)
-			  fields))
-		(progn
-		  (push (cons (nth 1 fields-missing)
-			      (concat content-before-subheading
-				      (anki-editor--concat-fields
-				       fields-extra subheading-fields level)))
-			fields)
-		  (push (cons (car fields-missing)
-			      heading)
-			fields)))))
-	   ((< 2 (length fields-missing))
-	    (user-error (concat "Cannot map note fields: "
-				"more than two fields missing"))))
-     fields)))
+			                :test #'string=))
+	       (fields-extra (cl-set-difference
+			              (mapcar #'car subheading-fields) model-fields
+			              :test #'string=))  ; Fields that are not in the model but could be used by Anki to fill missing fields
+	       (fields (cl-loop for field-name in fields-matching
+                            for value = (alist-get
+					                     field-name named-fields
+					                     nil nil #'string=)
+			                collect (cons field-name value)))
+	       (heading-format anki-editor-prepend-heading-format))
+
+      ;; The resources we might have to fill the existing data are
+      ;;
+      ;; 1. Heading, but only if prepend-heading is nil
+      ;;
+      ;; 2. Content including extra fields enriched with heading if
+      ;; prepend-heading is t
+
+
+      ;; Consider using `thunk-let' here, so we don't calculate the
+      ;; `body-field' if we don't have enough fields anyhow
+      (let* ((formatted-heading (format heading-format heading))
+             (heading-field (unless prepend-heading formatted-heading))
+             (body-field (seq-reduce (lambda (acc value) (concat acc "\n\n" (string-trim value)))
+                                     (list
+                                      (when prepend-heading formatted-heading)
+                                      content-before-subheading
+                                      (anki-editor--concat-fields fields-extra subheading-fields level))
+                                     ""))
+             ;; `field-pool' ia list of all extra fields available to fill the missing fields
+             (field-pool (remq nil (list heading-field body-field))))
+
+        (when (< (length field-pool) (length fields-missing))
+          (user-error "Not enough fields to fill the missing fields"))
+
+        ;; For each missing field we take one field from the pool
+        (cl-loop for missing-field in fields-missing
+                 for field = (pop field-pool)
+                 do (push (cons missing-field field) fields))))))
+
 
 (defun anki-editor--concat-fields (field-names field-alist level)
   "Concat field names and content of fields in list `field-names'."
+
+  ;; I think - since format is defined here, we should use it.
   (let ((format (anki-editor-entry-format)))
     (cl-loop for f in field-names
-	     concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
-			    (string-trim (alist-get f field-alist nil nil
-						    #'string=))
-			    "\n\n"))))
+             for value = (alist-get f field-alist nil nil #'string=)
+             when value
+	         concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
+			                (string-trim value) "\n\n"))))
+
+(ert-deftest test--concat-fields-should-concatenate-fields-into-string ()
+  "Test `anki-editor--concat-fields' should concatenate fields into string."
+
+    (should (equal (anki-editor--concat-fields '("Front" "Back")
+                             '(("Front" . "Front content")
+                             ("Back" . "Back content"))
+                             0)
+                   "* Front
+
+Front content
+
+* Back
+
+Back content
+
+")))
 
 
-;;; Minor mode
+(ert-deftest test--concat-fields-when-field-name-missing-in-field-alist-should-ignore-it ()
+  "Test `anki-editor--concat-fields' should ignore field name missing in field-alist."
 
-(defvar-local anki-editor--anki-tags-cache nil)
+    (should (equal (anki-editor--concat-fields '("Front" "Back")
+                             '(("Front" . "Front content"))
+                             0)
+                   "* Front
+
+Front content
+
+")))
+
+
 
 (defun anki-editor--concat-multivalued-property-value (prop value)
   (let ((old-values (org-entry-get-multivalued-property nil prop)))
