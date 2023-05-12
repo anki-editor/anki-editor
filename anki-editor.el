@@ -57,7 +57,6 @@
 (require 'org-element)
 (require 'ox)
 (require 'ox-html)
-(require 'ert)
 
 (defgroup anki-editor nil
   "Customizations for anki-editor."
@@ -464,7 +463,8 @@ If FMT is non-nil, format the exported string."
 (defconst anki-editor-prop-note-type "ANKI_NOTE_TYPE")
 (defconst anki-editor-prop-note-id "ANKI_NOTE_ID")
 (defconst anki-editor-prop-deck "ANKI_DECK")
-(defconst anki-editor-prop-format "ANKI_FORMAT")
+(defconst anki-editor-prop-format "ANKI_FORMAT"
+  "Format subheading and content using html backend.")
 (defconst anki-editor-prop-prepend-heading "ANKI_PREPEND_HEADING")
 (defconst anki-editor-prop-field-prefix "ANKI_FIELD_"
   "Anki fields with names got from an org-node property.")
@@ -766,7 +766,7 @@ and else from variable `anki-editor-prepend-heading'."
                            :model note-type
                            :deck deck
                            :tags tags
-                           :fields exported-fields)))
+                           :fields (sort exported-fields (lambda (left right) (string< (car left) (car right)))))))
 
 (defun anki-editor--get-tags ()
   "Return list of tags of org entry at point."
@@ -921,15 +921,14 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
       ;; 2. Content including extra fields enriched with heading if
       ;; prepend-heading is t
 
-
       ;; Consider using `thunk-let' here, so we don't calculate the
       ;; `body-field' if we don't have enough fields anyhow
       (let* ((formatted-heading (format heading-format heading))
              (heading-field (unless prepend-heading formatted-heading))
-             (body-field (seq-reduce (lambda (acc value) (concat acc "\n\n" (string-trim value)))
+             (body-field (seq-reduce (lambda (acc value) (concat acc "\n\n" (string-trim (or value ""))))
                                      (list
                                       (when prepend-heading formatted-heading)
-                                      content-before-subheading
+                                      (anki-editor--export-field content-before-subheading t)
                                       (anki-editor--concat-fields fields-extra subheading-fields level))
                                      ""))
              ;; `field-pool' ia list of all extra fields available to fill the missing fields
@@ -941,7 +940,9 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
         ;; For each missing field we take one field from the pool
         (cl-loop for missing-field in fields-missing
                  for field = (pop field-pool)
-                 do (push (cons missing-field field) fields))))))
+                 do (push (cons missing-field field) fields)))
+
+      fields)))
 
 
 (defun anki-editor--concat-fields (field-names field-alist level)
@@ -955,35 +956,6 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 	         concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
 			                (string-trim value) "\n\n"))))
 
-(ert-deftest test--concat-fields-should-concatenate-fields-into-string ()
-  "Test `anki-editor--concat-fields' should concatenate fields into string."
-
-    (should (equal (anki-editor--concat-fields '("Front" "Back")
-                             '(("Front" . "Front content")
-                             ("Back" . "Back content"))
-                             0)
-                   "* Front
-
-Front content
-
-* Back
-
-Back content
-
-")))
-
-
-(ert-deftest test--concat-fields-when-field-name-missing-in-field-alist-should-ignore-it ()
-  "Test `anki-editor--concat-fields' should ignore field name missing in field-alist."
-
-    (should (equal (anki-editor--concat-fields '("Front" "Back")
-                             '(("Front" . "Front content"))
-                             0)
-                   "* Front
-
-Front content
-
-")))
 
 
 

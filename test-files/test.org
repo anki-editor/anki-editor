@@ -1,0 +1,24 @@
+#+PROPERTY:
+
+* Simple note
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+** Front
+Simple note body
+
+** Back
+Lorem
+
+* Note without Back
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+** Front
+Simple note body
+
+* Whatever
