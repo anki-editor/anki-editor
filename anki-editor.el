@@ -360,6 +360,7 @@ The implementation is borrowed and simplified from ox-html."
      (unless (plist-get info :anki-editor-mode)
        (throw 'giveup nil))
 
+
      (let* ((type (org-element-property :type link))
             (raw-path (org-element-property :path link))
             (desc (org-string-nw-p desc))
@@ -428,10 +429,11 @@ If FMT is non-nil, format the exported string."
       (anki-editor--export-string src fmt)
     (anki-editor--export-region src fmt)))
 
+
 (defun anki-editor--export-region (src fmt)
   "Export region SRC and format it if FMT."
   (cl-ecase fmt
-    ('nil (buffer-substring-no-properties (car src) (cdr src)))
+    ('nil (buffer-substring-no-properties (car src) (car (cdr src))))
     ('t (save-window-excursion
           (save-mark-and-excursion
             (set-mark (car src))
@@ -737,36 +739,31 @@ and else from variable `anki-editor-prepend-heading'."
   "Make a note struct from current entry."
   (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
          (format (anki-editor-entry-format))
-	 (prepend-heading (anki-editor-prepend-heading))
+	     (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
          (note-type (org-entry-get nil anki-editor-prop-note-type))
          (tags (cl-set-difference (anki-editor--get-tags)
                                   anki-editor-ignored-org-tags
                                   :test #'string=))
-	 (heading (substring-no-properties (org-get-heading t t t t)))
-	 (level (org-current-level))
-	 (content-before-subheading
-	  (anki-editor--note-contents-before-subheading))
-	 (subheading-fields (anki-editor--build-fields))
-	 (fields (anki-editor--map-fields heading
-					  content-before-subheading
-					  subheading-fields
-					  note-type
-					  level
-					  prepend-heading))
-	 (exported-fields (mapcar (lambda (x)
-				    (cons
-				     (car x)
-				     (anki-editor--export-field (cdr x)
-								 format)))
-				  fields)))
+	     (heading (substring-no-properties (org-get-heading t t t t)))
+	     (level (org-current-level))
+	     (content-before-subheading
+	      (anki-editor--note-contents-before-subheading))
+	     (subheading-fields (anki-editor--build-fields))
+         (fields (anki-editor--map-fields heading
+					                      content-before-subheading
+					                      subheading-fields
+					                      note-type
+					                      level
+					                      prepend-heading
+                                          format)))
     (unless deck (user-error "Missing deck"))
     (unless note-type (user-error "Missing note type"))
     (make-anki-editor-note :id note-id
                            :model note-type
                            :deck deck
                            :tags tags
-                           :fields (sort exported-fields (lambda (left right) (string< (car left) (car right)))))))
+                           :fields (sort fields (lambda (left right) (string< (car left) (car right)))))))
 
 (defun anki-editor--get-tags ()
   "Return list of tags of org entry at point."
@@ -884,7 +881,8 @@ Leading whitespace, drawers, and planning content is skipped."
 				                subheading-fields
 				                note-type
 				                level
-				                prepend-heading)
+				                prepend-heading
+                                format)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
@@ -911,8 +909,9 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                             for value = (alist-get
 					                     field-name named-fields
 					                     nil nil #'string=)
-			                collect (cons field-name value)))
+			                collect (cons field-name (anki-editor--export-field value format))))
 	       (heading-format anki-editor-prepend-heading-format))
+
 
       ;; The resources we might have to fill the existing data are
       ;;
@@ -923,12 +922,13 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 
       ;; Consider using `thunk-let' here, so we don't calculate the
       ;; `body-field' if we don't have enough fields anyhow
-      (let* ((formatted-heading (format heading-format heading))
+      (let* ((formatted-heading (or (and format (anki-editor--export-field (format heading-format heading) format))
+                                    heading))
              (heading-field (unless prepend-heading formatted-heading))
-             (body-field (seq-reduce (lambda (acc value) (concat acc "\n\n" (string-trim (or value ""))))
+             (body-field (seq-reduce (lambda (acc value) (string-trim (concat acc "\n\n" (string-trim (or value "")))))
                                      (list
                                       (when prepend-heading formatted-heading)
-                                      (anki-editor--export-field content-before-subheading t)
+                                      (anki-editor--export-field content-before-subheading format)
                                       (anki-editor--concat-fields fields-extra subheading-fields level))
                                      ""))
              ;; `field-pool' ia list of all extra fields available to fill the missing fields
@@ -944,7 +944,6 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 
       fields)))
 
-
 (defun anki-editor--concat-fields (field-names field-alist level)
   "Concat field names and content of fields in list `field-names'."
 
@@ -955,8 +954,6 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              when value
 	         concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
 			                (string-trim value) "\n\n"))))
-
-
 
 
 (defun anki-editor--concat-multivalued-property-value (prop value)
