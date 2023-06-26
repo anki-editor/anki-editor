@@ -925,11 +925,12 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
       (let* ((formatted-heading (or (and format (anki-editor--export-field (format heading-format heading) format))
                                     heading))
              (heading-field (unless prepend-heading formatted-heading))
+             (formatted-subheading-fields (mapcar (lambda (field) (anki-editor--export-field (cdr field) format)) subheading-fields))
              (body-field (seq-reduce (lambda (acc value) (string-trim (concat acc "\n\n" (string-trim (or value "")))))
                                      (list
                                       (when prepend-heading formatted-heading)
                                       (anki-editor--export-field content-before-subheading format)
-                                      (anki-editor--concat-fields fields-extra subheading-fields level))
+                                      (anki-editor--concat-fields fields-extra formatted-subheading-fields level))
                                      ""))
              ;; `field-pool' ia list of all extra fields available to fill the missing fields
              (field-pool (remq nil (list heading-field body-field))))
@@ -941,7 +942,6 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
         (cl-loop for missing-field in fields-missing
                  for field = (pop field-pool)
                  do (push (cons missing-field field) fields)))
-
       fields)))
 
 (defun anki-editor--concat-fields (field-names field-alist level)

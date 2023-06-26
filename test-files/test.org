@@ -77,5 +77,14 @@ Note with file link
 ** Back
 [[file:test-attachments/1x1.gif][Test image]]
 
+
+* Cloze with text
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+** Text
+Lorem {{c1::lorem}}.
+
 * Whatever
 as

@@ -7,9 +7,9 @@
 ;; Created: Thu May 11 14:05:13 2023 (+0300)
 ;; Version:
 ;; Package-Requires: ((ert))
-;; Last-Updated: Mon May 22 18:18:50 2023 (+0300)
+;; Last-Updated: Mon Jun 26 08:41:59 2023 (+0300)
 ;;           By: Renat Galimov
-;;     Update #: 247
+;;     Update #: 256
 ;; URL: https://github.com/orgtre/anki-editor
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -217,6 +217,25 @@ Simple note body
                                        ("Front" . "/Simple/ *note* =body=\n"))
                                       nil))))))))
 
+
+;; The problem with this behavior is that it gets "Back Extra" from
+;; the headline. I'd prefer back-extra to be empty.
+(ert-deftest test--note-at-point-for-cloze-with-front-should-render-note()
+  "Test `anki-editor--note-at-point' for cloze with front should render note."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "test.org")
+
+        (anki-editor-test--go-to-headline "Cloze with text")
+        (anki-editor-test--patch-variables
+         (lambda ()
+             (should (equal
+                    (anki-editor-note-at-point)
+                    #s(anki-editor-note nil
+                                        "Cloze"
+                                        "Tests"
+                                        (("Back Extra" . "<p>\ntest <b>Cloze with text</b></p>\n")
+                                         ("Text" . "<p>\nLorem {{c1::lorem}}.\n</p>\n"))
+                                        nil))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
