@@ -241,7 +241,7 @@ Raise an error if applicable."
 
 (defmacro anki-editor-api-with-multi (&rest body)
   "Use in combination with `anki-editor-api-enqueue' to combine
-multiple api calls into a single 'multi' call, return the results
+multiple api calls into a single `multi' call, return the results
 of these calls in the same order."
   `(let (--anki-editor-var-multi-actions--
          --anki-editor-var-multi-results--)
@@ -352,23 +352,25 @@ The result is the path to the newly stored media file."
            for matches = (string-match (cl-first delims) latex-code)
            when matches
            do
-           (setq latex-code (replace-match
-                             (concat (if (and anki-editor-create-latex-display-math-div
-                                              (--any? (s-matches? (cl-first delims) it)
-                                                      '("\\[" "$$")))
-                                         "<div class=\"display-math\">"
-                                       "")
-                                     (cl-second delims))
-                             t t latex-code))
-           (string-match (cl-third delims) latex-code)
-           (setq latex-code (replace-match
-                             (concat (cl-fourth delims)
-                                     (if (and anki-editor-create-latex-display-math-div
-                                              (--any? (s-matches? (cl-third delims) it)
-                                                      '("\\]" "$$")))
-                                         "</div>"
-                                       ""))
-                             t t latex-code))
+           (let ((display-beg (--any? (s-matches? (concat (cl-first delims) "$") it) '("\\[" "$$")))
+                 (display-end (--any? (s-matches? (cl-third delims)              it) '("\\]" "$$"))))
+             (setq latex-code (replace-match
+                               (concat (if display-beg "<p>" "")
+                                       (if (and anki-editor-create-latex-display-math-div
+                                                display-beg)
+                                           "<div class=\"display-math\">"
+                                         "")
+                                       (cl-second delims))
+                               t t latex-code))
+             (string-match (cl-third delims) latex-code)
+             (setq latex-code (replace-match
+                               (concat (cl-fourth delims)
+                                       (if (and anki-editor-create-latex-display-math-div
+                                                display-end)
+                                           "</div>"
+                                         "")
+                                       (if display-end "</p>" ""))
+                               t t latex-code)))
            until matches
            finally return latex-code))
 
