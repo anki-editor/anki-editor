@@ -141,6 +141,27 @@ Only used when no ANKI_DEFAULT_NOTE_TYPE property is inherited."
   "Ensure that `anki-editor-gui-browse' opens in foreground."
   :type 'boolean)
 
+(defcustom anki-editor-create-latex-display-math-div nil
+  "Whether to create an extra div for display math.
+When set to t, display math (delimited by \\=\\[ and \\] or $$ and $$)
+will be wrapped in a \"display-math\" div class upon export.  For
+example,
+
+  \\=\\[
+    1
+  \\]
+
+will be exported as
+
+  <div class=\"display-math\">
+    [$$]
+      1
+    [/$$]
+  </div>
+
+This option only has an effect if `anki-editor-latex-style' is set to
+use Anki's builtin LaTeX support."
+  :type 'boolean)
 
 ;;; AnkiConnect
 
@@ -331,9 +352,23 @@ The result is the path to the newly stored media file."
            for matches = (string-match (cl-first delims) latex-code)
            when matches
            do
-           (setq latex-code (replace-match (cl-second delims) t t latex-code))
+           (setq latex-code (replace-match
+                             (concat (if (and anki-editor-create-latex-display-math-div
+                                              (--any? (s-matches? (cl-first delims) it)
+                                                      '("\\[" "$$")))
+                                         "<div class=\"display-math\">"
+                                       "")
+                                     (cl-second delims))
+                             t t latex-code))
            (string-match (cl-third delims) latex-code)
-           (setq latex-code (replace-match (cl-fourth delims) t t latex-code))
+           (setq latex-code (replace-match
+                             (concat (cl-fourth delims)
+                                     (if (and anki-editor-create-latex-display-math-div
+                                              (--any? (s-matches? (cl-third delims) it)
+                                                      '("\\]" "$$")))
+                                         "</div>"
+                                       ""))
+                             t t latex-code))
            until matches
            finally return latex-code))
 
