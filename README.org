@@ -32,7 +32,7 @@ If you're using [[https://github.com/radian-software/straight.el][straight.el]] 
 #+begin_src elisp
 (use-package anki-editor
   :defer t
-  :straight (:fork "orgtre"))
+  :straight (:repo "anki-editor/anki-editor"))
 #+end_src
 
 ** Usage
