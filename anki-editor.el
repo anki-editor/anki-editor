@@ -366,6 +366,7 @@ The implementation is borrowed and simplified from ox-html."
      (unless (plist-get info :anki-editor-mode)
        (throw 'giveup nil))
 
+
      (let* ((type (org-element-property :type link))
             (raw-path (org-element-property :path link))
             (desc (org-string-nw-p desc))
@@ -426,6 +427,30 @@ The implementation is borrowed and simplified from ox-html."
         (t (throw 'giveup nil)))))
    (funcall oldfun link desc info)))
 
+(defun anki-editor--export-field (src fmt)
+  "Export field as string if SRC is a string, otherwise export it as a region.
+
+If FMT is non-nil, format the exported string."
+  (if (stringp src)
+      (anki-editor--export-string src fmt)
+    (anki-editor--export-region src fmt)))
+
+
+(defun anki-editor--export-region (src fmt)
+  "Export region SRC and format it if FMT."
+  (cl-ecase fmt
+    ('nil (buffer-substring-no-properties (car src) (car (cdr src))))
+    ('t (save-window-excursion
+          (save-mark-and-excursion
+            (set-mark (car src))
+            (goto-char (car (cdr src)))
+            (or (org-export-as anki-editor--ox-anki-html-backend
+                               t
+                               nil
+                               t
+                               anki-editor--ox-export-ext-plist)
+            ""))))))
+
 (defun anki-editor--export-string (src fmt)
   "Export string SRC and format it if FMT."
   (cl-ecase fmt
@@ -446,7 +471,8 @@ The implementation is borrowed and simplified from ox-html."
 (defconst anki-editor-prop-note-type "ANKI_NOTE_TYPE")
 (defconst anki-editor-prop-note-id "ANKI_NOTE_ID")
 (defconst anki-editor-prop-deck "ANKI_DECK")
-(defconst anki-editor-prop-format "ANKI_FORMAT")
+(defconst anki-editor-prop-format "ANKI_FORMAT"
+  "Format subheading and content using html backend.")
 (defconst anki-editor-prop-prepend-heading "ANKI_PREPEND_HEADING")
 (defconst anki-editor-prop-field-prefix "ANKI_FIELD_"
   "Anki fields with names got from an org-node property.")
@@ -719,36 +745,31 @@ and else from variable `anki-editor-prepend-heading'."
   "Make a note struct from current entry."
   (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
          (format (anki-editor-entry-format))
-	 (prepend-heading (anki-editor-prepend-heading))
+	     (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
          (note-type (org-entry-get nil anki-editor-prop-note-type))
          (tags (cl-set-difference (anki-editor--get-tags)
                                   anki-editor-ignored-org-tags
                                   :test #'string=))
-	 (heading (substring-no-properties (org-get-heading t t t t)))
-	 (level (org-current-level))
-	 (content-before-subheading
-	  (anki-editor--note-contents-before-subheading))
-	 (subheading-fields (anki-editor--build-fields))
-	 (fields (anki-editor--map-fields heading
-					  content-before-subheading
-					  subheading-fields
-					  note-type
-					  level
-					  prepend-heading))
-	 (exported-fields (mapcar (lambda (x)
-				    (cons
-				     (car x)
-				     (anki-editor--export-string (cdr x)
-								 format)))
-				  fields)))
+	     (heading (substring-no-properties (org-get-heading t t t t)))
+	     (level (org-current-level))
+	     (content-before-subheading
+	      (anki-editor--note-contents-before-subheading))
+	     (subheading-fields (anki-editor--build-fields))
+         (fields (anki-editor--map-fields heading
+					                      content-before-subheading
+					                      subheading-fields
+					                      note-type
+					                      level
+					                      prepend-heading
+                                          format)))
     (unless deck (user-error "Missing deck"))
     (unless note-type (user-error "Missing note type"))
     (make-anki-editor-note :id note-id
                            :model note-type
                            :deck deck
                            :tags tags
-                           :fields exported-fields)))
+                           :fields (sort fields (lambda (left right) (string< (car left) (car right)))))))
 
 (defun anki-editor--get-tags ()
   "Return list of tags of org entry at point."
@@ -765,6 +786,7 @@ and else from variable `anki-editor-prepend-heading'."
   (let* ((value (org-entry-get pom property t))
 	 (values (and value (split-string value))))
     (mapcar #'org-entry-restore-space values)))
+
 
 (defun anki-editor--build-fields ()
   "Build a list of fields from subheadings of current heading.
@@ -799,12 +821,11 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              for end = (org-element-property :contents-end element)
              for raw = (or (and begin
                                 end
-                                (buffer-substring-no-properties
-                                 begin
-                                 ;; in case the buffer is narrowed,
-                                 ;; e.g. by `org-map-entries' when
-                                 ;; scope is `tree'
-                                 (min (point-max) end)))
+                                (list begin
+                                      ;; in case the buffer is narrowed,
+                                      ;; e.g. by `org-map-entries' when
+                                      ;; scope is `tree'
+                                      (min (point-max) end)))
                            "")
              ;; for content = (anki-editor--export-string raw format)
              ;; collect (cons heading content)
@@ -851,131 +872,95 @@ Leading whitespace, drawers, and planning content is skipped."
 			 finally return (and eoh (org-element-property
 						  :begin nextelem))))
 	   (contents-raw (or (and begin
-				  end
-				  (buffer-substring-no-properties
-				   begin
-				   ;; in case the buffer is narrowed,
-				   ;; e.g. by `org-map-entries' when
-				   ;; scope is `tree'
-				   (min (point-max) end)))
-			     "")))
+				              end
+                              (list begin
+				                    ;; in case the buffer is narrowed,
+				                    ;; e.g. by `org-map-entries' when
+				                    ;; scope is `tree'
+				                    (min (point-max) end)))
+			             "")))
       contents-raw)))
 
+
 (defun anki-editor--map-fields (heading
-				content-before-subheading
-				subheading-fields
-				note-type
-				level
-				prepend-heading)
+				                content-before-subheading
+				                subheading-fields
+				                note-type
+				                level
+				                prepend-heading
+                                format)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
 map missing fields to the `heading' and/or `content-before-subheading'.
 Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (anki-editor--with-collection-data-updated
-   (let* ((model-fields (alist-get
-                         note-type anki-editor--model-fields
-                         nil nil #'string=))
-          (property-fields (anki-editor--property-fields model-fields))
-          (named-fields (seq-uniq (append subheading-fields property-fields)
-                                  (lambda (left right)
-                                    (string= (car left) (car right)))))
-          (fields-matching (cl-intersection
+    (let* ((model-fields (alist-get
+                          note-type anki-editor--model-fields
+                          nil nil #'string=))  ; Fields Anki wants to be in the note
+           (property-fields (anki-editor--property-fields model-fields))  ; Fields defined in the property
+           (named-fields (seq-uniq (append subheading-fields property-fields)
+                                   (lambda (left right)
+                                     (string= (car left) (car right)))))
+           (fields-matching (cl-intersection
+                             model-fields (mapcar #'car named-fields)
+                             :test #'string=))  ; Fields that match the model
+	       (fields-missing (cl-set-difference
                             model-fields (mapcar #'car named-fields)
-                            :test #'string=))
-	  (fields-missing (cl-set-difference
-                           model-fields (mapcar #'car named-fields)
-			   :test #'string=))
-	  (fields-extra (cl-set-difference
-			 (mapcar #'car named-fields) model-fields
-			 :test #'string=))
-	  (fields (cl-loop for f in fields-matching
-			   collect (cons f (alist-get
-					    f named-fields
-					    nil nil #'string=))))
-	  (heading-format anki-editor-prepend-heading-format))
-     (cond ((equal 0 (length fields-missing))
-	    (when (< 0 (length fields-extra))
-	      (user-error "Failed to map all named fields")))
-	   ((equal 1 (length fields-missing))
-	    (if (equal 0 (length fields-extra))
-		(if (equal "" (string-trim content-before-subheading))
-		    (push (cons (car fields-missing) heading)
-			  fields)
-		  (if prepend-heading
-		      (push (cons (car fields-missing)
-				  (concat
-				   (format heading-format heading)
-				   content-before-subheading))
-			    fields)
-		    (push (cons (car fields-missing)
-				content-before-subheading)
-			  fields)))
-	      (if (equal "" (string-trim content-before-subheading))
-		  (push (cons (car fields-missing)
-			      (anki-editor--concat-fields
-			       fields-extra subheading-fields level))
-			fields)
-		(if prepend-heading
-		    (push (cons (car fields-missing)
-				(concat
-				 (format heading-format heading)
-				 content-before-subheading
-				 (anki-editor--concat-fields
-				  fields-extra subheading-fields
-				  level)))
-			  fields)
-		  (push (cons (car fields-missing)
-			      (concat content-before-subheading
-				      (anki-editor--concat-fields
-				       fields-extra subheading-fields
-				       level)))
-			fields)))))
-	   ((equal 2 (length fields-missing))
-	    (if (equal 0 (length fields-extra))
-		(progn
-		  (push (cons (nth 1 fields-missing)
-			      content-before-subheading)
-			fields)
-		  (push (cons (car fields-missing)
-			      heading)
-			fields))
-	      (if (equal "" (string-trim content-before-subheading))
-		  (progn
-		    (push (cons (nth 1 fields-missing)
-				(anki-editor--concat-fields
-				 fields-extra subheading-fields level))
-			  fields)
-		    (push (cons (car fields-missing)
-				heading)
-			  fields))
-		(progn
-		  (push (cons (nth 1 fields-missing)
-			      (concat content-before-subheading
-				      (anki-editor--concat-fields
-				       fields-extra subheading-fields level)))
-			fields)
-		  (push (cons (car fields-missing)
-			      heading)
-			fields)))))
-	   ((< 2 (length fields-missing))
-	    (user-error (concat "Cannot map note fields: "
-				"more than two fields missing"))))
-     fields)))
+			                :test #'string=))
+	       (fields-extra (cl-set-difference
+			              (mapcar #'car subheading-fields) model-fields
+			              :test #'string=))  ; Fields that are not in the model but could be used by Anki to fill missing fields
+	       (fields (cl-loop for field-name in fields-matching
+                            for value = (alist-get
+					                     field-name named-fields
+					                     nil nil #'string=)
+			                collect (cons field-name (anki-editor--export-field value format))))
+	       (heading-format anki-editor-prepend-heading-format))
+
+
+      ;; The resources we might have to fill the existing data are
+      ;;
+      ;; 1. Heading, but only if prepend-heading is nil
+      ;;
+      ;; 2. Content including extra fields enriched with heading if
+      ;; prepend-heading is t
+
+      ;; Consider using `thunk-let' here, so we don't calculate the
+      ;; `body-field' if we don't have enough fields anyhow
+      (let* ((formatted-heading (or (and format (anki-editor--export-field (format heading-format heading) format))
+                                    heading))
+             (heading-field (unless prepend-heading formatted-heading))
+             (formatted-subheading-fields (mapcar (lambda (field) (anki-editor--export-field (cdr field) format)) subheading-fields))
+             (body-field (seq-reduce (lambda (acc value) (string-trim (concat acc "\n\n" (string-trim (or value "")))))
+                                     (list
+                                      (when prepend-heading formatted-heading)
+                                      (anki-editor--export-field content-before-subheading format)
+                                      (anki-editor--concat-fields fields-extra formatted-subheading-fields level))
+                                     ""))
+             ;; `field-pool' ia list of all extra fields available to fill the missing fields
+             (field-pool (remq nil (list heading-field body-field))))
+
+        (when (< (length field-pool) (length fields-missing))
+          (user-error "Not enough fields to fill the missing fields"))
+
+        ;; For each missing field we take one field from the pool
+        (cl-loop for missing-field in fields-missing
+                 for field = (pop field-pool)
+                 do (push (cons missing-field field) fields)))
+      fields)))
 
 (defun anki-editor--concat-fields (field-names field-alist level)
   "Concat field names and content of fields in list `field-names'."
+
+  ;; I think - since format is defined here, we should use it.
   (let ((format (anki-editor-entry-format)))
     (cl-loop for f in field-names
-	     concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
-			    (string-trim (alist-get f field-alist nil nil
-						    #'string=))
-			    "\n\n"))))
+             for value = (alist-get f field-alist nil nil #'string=)
+             when value
+	         concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
+			                (string-trim value) "\n\n"))))
 
-
-;;; Minor mode
-
-(defvar-local anki-editor--anki-tags-cache nil)
 
 (defun anki-editor--concat-multivalued-property-value (prop value)
   (let ((old-values (org-entry-get-multivalued-property nil prop)))
