@@ -67,6 +67,10 @@
 This prevents early closing of cloze."
   :type 'boolean)
 
+(defcustom anki-editor-allow-duplicates nil
+  "If non-nil, do not fail on duplicate notes."
+  :type 'boolean)
+
 (defcustom anki-editor-org-tags-as-anki-tags t
   "If nil, tags of entries won't be counted as Anki tags."
   :type 'boolean)
@@ -252,6 +256,8 @@ request directly, it simply queues the request."
    :deckName (anki-editor-note-deck note)
    :modelName (anki-editor-note-model note)
    :fields (anki-editor-note-fields note)
+   :options (list :allowDuplicate (or anki-editor-allow-duplicates
+                                      :json-false))
    ;; Convert tags to a vector since empty list is identical to nil
    ;; which will become None in Python, but AnkiConnect requires it
    ;; to be type of list.
