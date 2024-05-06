@@ -155,13 +155,13 @@ Only used when no ANKI_DEFAULT_NOTE_TYPE property is inherited."
                               &allow-other-keys)
   "Fetch URL using curl.
 The api is borrowed from request.el."
-;; This exists because request.el's sync mode calls curl asynchronously under
-;; the hood, which doesn't work on some machines (like mine) where the process
-;; sentinel never gets called. After some debugging of Emacs, it seems that in
-;; 'process.c' the pselect syscall to the file descriptor of inotify used by
-;; 'autorevert' always returns a nonzero value and causes 'status_notify' never
-;; being called. To determine whether it's a bug in Emacs and make a patch
-;; requires more digging.
+  ;; This exists because request.el's sync mode calls curl asynchronously under
+  ;; the hood, which doesn't work on some machines (like mine) where the process
+  ;; sentinel never gets called. After some debugging of Emacs, it seems that in
+  ;; 'process.c' the pselect syscall to the file descriptor of inotify used by
+  ;; 'autorevert' always returns a nonzero value and causes 'status_notify' never
+  ;; being called. To determine whether it's a bug in Emacs and make a patch
+  ;; requires more digging.
   (let ((tempfile (make-temp-file "emacs-anki-editor"))
         (responsebuf (generate-new-buffer " *anki-editor-curl*")))
     (when data
@@ -300,12 +300,12 @@ The result is the path to the newly stored media file."
 
 (cl-macrolet
     ((with-table (table)
-                 `(cl-loop for delims in ,table
-                           collect
-                           (list (concat "^" (regexp-quote (cl-first delims)))
-                                 (cl-second delims)
-                                 (concat (regexp-quote (cl-third delims)) "$")
-                                 (cl-fourth delims)))))
+       `(cl-loop for delims in ,table
+                 collect
+                 (list (concat "^" (regexp-quote (cl-first delims)))
+                       (cl-second delims)
+                       (concat (regexp-quote (cl-third delims)) "$")
+                       (cl-fourth delims)))))
 
   (defconst anki-editor--native-latex-delimiters
     (with-table '(("$$" "[$$]"

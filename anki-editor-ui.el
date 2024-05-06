@@ -41,13 +41,13 @@
   [["Org"
     ("i" " insert default note" anki-editor-insert-default-note :level 1)
     ("t" " set default note type" anki-editor-set-default-note-type
-     :level 1)        
+     :level 1)
     ("c" " cloze dwim" anki-editor-cloze-dwim :level 2)]
    [""
     ("I" " insert note" anki-editor-insert-note :level 1)
-    ("T" " set note type" anki-editor-set-note-type :level 1)    
+    ("T" " set note type" anki-editor-set-note-type :level 1)
     ("d" " delete note" anki-editor-delete-note-at-point :level 1)]]
-  [["Push"    
+  [["Push"
     ("." " note at point        " anki-editor-push-note-at-point :level 2)
     ("n" " new notes            " anki-editor-push-new-notes :level 2)
     ("p" " push with ui" anki-editor-ui-push :level 1)]
@@ -63,11 +63,11 @@
     ("a" " api check" anki-editor-api-check 3)]]
   [["Misc"
     ("h" " subtree to html      " anki-editor-export-subtree-to-html
-     :level 4)    
+     :level 4)
     ("C" " copy styles          " anki-editor-copy-styles :level 4)
     ("F" " toggle format        " anki-editor-toggle-format :level 4)]
    [""
-    ("H" " region to html" anki-editor-convert-region-to-html :level 4)    
+    ("H" " region to html" anki-editor-convert-region-to-html :level 4)
     ("R" " remove styles" anki-editor-remove-styles :level 4)
     ("P" " toggle prepend heading" anki-editor-toggle-prepend-heading
      :level 4)]])
@@ -146,7 +146,7 @@ Return an alist with the full match pattern and deck."
 	(note-type (transient-arg-value "note-type=" args))
 	(decks (alist-get "decks=" args nil nil 'equal))
 	(match (transient-arg-value "match=" args)))
-    (let ((fullmatch 
+    (let ((fullmatch
 	   (concat
 	    (when new
 	      (concat "+" anki-editor-prop-note-id "=\"\""))
@@ -169,7 +169,7 @@ Return an alist with the full match pattern and deck."
 A note (subtree) is skipped unless its deck is in FILTER-DECKS.
 We can't just filter by deck using `org-map-entries` match argument,
 since we need to turn off property inheritance when mapping notes."
-  (let ((deck (org-entry-get nil anki-editor-prop-deck t)))    
+  (let ((deck (org-entry-get nil anki-editor-prop-deck t)))
     (unless (member deck filter-decks)
       (save-excursion
         (org-end-of-subtree t)
