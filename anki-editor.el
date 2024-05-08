@@ -141,11 +141,11 @@ Only used when no ANKI_DEFAULT_NOTE_TYPE property is inherited."
   "Ensure that `anki-editor-gui-browse' opens in foreground."
   :type 'boolean)
 
-(defcustom anki-editor-create-latex-display-math-div nil
+(defcustom anki-editor-latex-display-math-div nil
   "Whether to create an extra div for display math.
-When set to t, display math (delimited by \\=\\[ and \\] or $$ and $$)
-will be wrapped in a \"display-math\" div class upon export.  For
-example,
+When set to STRING, display math (delimited by \\=\\[ and \\] or $$ and
+$$) will be wrapped in a div with class name STRING upon export.  For
+example, with a value of \"display-math\", the LaTeX snippet
 
   \\=\\[
     1
@@ -161,7 +161,8 @@ will be exported as
 
 This option only has an effect if `anki-editor-latex-style' is set to
 use Anki's builtin LaTeX support."
-  :type 'boolean)
+  :type '(choice (string :tag "Use this string for the class' name.")
+                 (const :tag "Do not create an extra div for display math." nil)))
 
 ;;; AnkiConnect
 
@@ -344,6 +345,18 @@ The result is the path to the newly stored media file."
                   ("$" "\\("
                    "$" "\\)")))))
 
+(defun anki-editor--latex-div-beg ()
+  (if anki-editor-latex-display-math-div
+      (concat "<div class=\""
+              anki-editor-latex-display-math-div
+              "\">")
+    ""))
+
+(defun anki-editor--latex-div-end ()
+  (if anki-editor-latex-display-math-div
+      "</div>"
+    ""))
+
 (defun anki-editor--translate-latex-fragment (latex-code)
   "Translate LATEX-CODE fragment to html."
   (cl-loop for delims in (cl-ecase anki-editor-latex-style
@@ -355,21 +368,18 @@ The result is the path to the newly stored media file."
            (let ((display-beg (--any? (s-matches? (concat (cl-first delims) "$") it) '("\\[" "$$")))
                  (display-end (--any? (s-matches? (cl-third delims)              it) '("\\]" "$$"))))
              (setq latex-code (replace-match
-                               (concat (if display-beg "<p>" "")
-                                       (if (and anki-editor-create-latex-display-math-div
-                                                display-beg)
-                                           "<div class=\"display-math\">"
+                               (concat (if display-beg
+                                           (concat "<p>" (anki-editor--latex-div-beg))
                                          "")
                                        (cl-second delims))
                                t t latex-code))
              (string-match (cl-third delims) latex-code)
              (setq latex-code (replace-match
                                (concat (cl-fourth delims)
-                                       (if (and anki-editor-create-latex-display-math-div
-                                                display-end)
-                                           "</div>"
-                                         "")
-                                       (if display-end "</p>" ""))
+                                       (if display-end
+                                           (concat (anki-editor--latex-div-end)
+                                                   "</p>")
+                                         ""))
                                t t latex-code)))
            until matches
            finally return latex-code))
@@ -379,8 +389,15 @@ The result is the path to the newly stored media file."
   (setq latex-code (replace-regexp-in-string
 		    "\n" "<br>" (org-html-encode-plain-text latex-code)))
   (cl-ecase anki-editor-latex-style
-    (builtin (concat "[latex]<br>" latex-code "[/latex]"))
-    (mathjax (concat "\\[<br>" latex-code "\\]"))))
+    (mathjax (concat "\\[<br>" latex-code "\\]"))
+    (builtin
+     (concat
+      ;; Always treat environments as display maths.
+      (anki-editor--latex-div-beg)
+      "[latex]<br>"
+      latex-code
+      "[/latex]"
+      (anki-editor--latex-div-end)))))
 
 (defun anki-editor--ox-latex (latex _contents _info)
   "Transcode LATEX from Org to HTML.
