@@ -900,10 +900,14 @@ Leading whitespace, drawers, and planning content is skipped."
 			 for nextelem = (progn
 					  (goto-char eoh)
 					  (org-element-at-point))
-			 while (not (memq (org-element-type nextelem)
-					  '(headline)))
-			 finally return (and eoh (org-element-property
-						  :begin nextelem))))
+			 while (not (or (memq (org-element-type nextelem)
+					    '(headline))
+                                      (eobp)))
+			 finally
+                         return (let ((end (org-element-property :begin nextelem)))
+                                  (and eoh (if (equal end begin)
+                                               (org-element-property :end nextelem)
+                                             end)))))
 	   (contents-raw (or (and begin
 				  end
 				  (buffer-substring-no-properties
