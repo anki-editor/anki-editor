@@ -219,14 +219,14 @@ The api is borrowed from request.el."
     (anki-editor--fetch (format "http://%s:%s"
                                 anki-editor-api-host
                                 anki-editor-api-port)
-			:type "POST"
+                        :type "POST"
                         :parser 'json-read
                         :data (json-encode payload)
                         :success (cl-function
-				  (lambda (&key data &allow-other-keys)
+                                  (lambda (&key data &allow-other-keys)
                                     (setq reply data)))
                         :error (cl-function
-				(lambda (&key error-thrown &allow-other-keys)
+                                (lambda (&key error-thrown &allow-other-keys)
                                   (setq err (string-trim (cdr error-thrown)))))
                         :sync t)
     (when err
@@ -387,7 +387,7 @@ The result is the path to the newly stored media file."
 (defun anki-editor--translate-latex-env (latex-code)
   "Translate LATEX-CODE environment to html."
   (setq latex-code (replace-regexp-in-string
-		    "\n" "<br>" (org-html-encode-plain-text latex-code)))
+                    "\n" "<br>" (org-html-encode-plain-text latex-code)))
   (cl-ecase anki-editor-latex-style
     (mathjax (concat "\\[<br>" latex-code "\\]"))
     (builtin
@@ -435,10 +435,10 @@ The implementation is borrowed and simplified from ox-html."
                             (plist-get info :html-link-use-abs-url)
                             (file-name-absolute-p raw-path))
                    (setq raw-path
-			 (concat (file-name-as-directory home) raw-path)))
+                         (concat (file-name-as-directory home) raw-path)))
                  ;; storing file to Anki and return the modified path
                  (anki-editor-api--store-media-file
-		  (expand-file-name (url-unhex-string raw-path)))))
+                  (expand-file-name (url-unhex-string raw-path)))))
               (t (throw 'giveup nil))))
             (attributes-plist
              (let* ((parent (org-export-get-parent-element link))
@@ -460,9 +460,9 @@ The implementation is borrowed and simplified from ox-html."
          (org-html--format-image path attributes-plist info))
 
         ;; Audio file.
-	((cl-some (lambda (string) (string-suffix-p string path t))
-		  anki-editor--audio-extensions)
-	 (format "[sound:%s]" path))
+        ((cl-some (lambda (string) (string-suffix-p string path t))
+                  anki-editor--audio-extensions)
+         (format "[sound:%s]" path))
 
         ;; External link with a description part.
         ((and path desc) (format "<a href=\"%s\"%s>%s</a>"
@@ -544,12 +544,12 @@ as note types won't change in BODY."
                    anki-editor--model-names models
                    anki-editor--model-fields
                    (cl-loop
-		    for flds in (eval `(anki-editor-api-with-multi
+                    for flds in (eval `(anki-editor-api-with-multi
                                         ,@(cl-loop
-					   for mod in models
+                                           for mod in models
                                            collect `(anki-editor-api-enqueue
-						     'modelFieldNames
-						     :modelName ,mod))))
+                                                     'modelFieldNames
+                                                     :modelName ,mod))))
                     for mod in models
                     collect (cons mod flds)))
              ,@body)
@@ -564,12 +564,12 @@ A leading logical operator like `+' or `&' is required in MATCH."
   ;; note heading will be counted as note headings as well
   (let ((org-use-property-inheritance nil))
     (apply #'org-map-entries
-	   func
-	   (concat "+" anki-editor-prop-note-type "<>\"\""
-		   match
-		   anki-editor-note-match)
-	   scope
-	   skip)))
+           func
+           (concat "+" anki-editor-prop-note-type "<>\"\""
+                   match
+                   anki-editor-note-match)
+           scope
+           skip)))
 
 (defun anki-editor--insert-note-skeleton (prefix deck heading type fields)
   "Insert a note subtree (skeleton) with HEADING, TYPE and FIELDS.
@@ -582,24 +582,24 @@ see `anki-editor-insert-note' which wraps this function."
             (org-up-heading-safe)
             (and (not (string-blank-p deck))
                  (string= deck (org-entry-get-with-inheritance
-				anki-editor-prop-deck))))
+                                anki-editor-prop-deck))))
     (org-set-property anki-editor-prop-deck deck))
   (when (string-blank-p heading)
     (setq fields (cdr fields)))
   (when (equal 1 (length fields))
     (setq fields nil))
   (let ((use-content (if prefix
-			 (not anki-editor-insert-note-always-use-content)
-		       anki-editor-insert-note-always-use-content)))
+                         (not anki-editor-insert-note-always-use-content)
+                       anki-editor-insert-note-always-use-content)))
     (when use-content
       (setq fields (cdr fields)))
     (dolist (field fields)
       (save-excursion
-	(org-insert-heading-respect-content)
-	(org-do-demote)
-	(insert field)))
+        (org-insert-heading-respect-content)
+        (org-do-demote)
+        (insert field)))
     (when (and (not (string-blank-p heading))
-	       (not use-content))
+               (not use-content))
       (org-goto-first-child)
       (end-of-line))))
 
@@ -632,34 +632,34 @@ see `anki-editor-insert-note' which wraps this function."
   "Request AnkiConnect for updating fields, deck, and tags of NOTE."
   (let* ((oldnote (caar (anki-editor-api-with-multi
                          (anki-editor-api-enqueue
-			  'notesInfo
+                          'notesInfo
                           :notes (list (string-to-number
-					(anki-editor-note-id note))))
+                                        (anki-editor-note-id note))))
                          (anki-editor-api-enqueue
-			  'updateNoteFields
+                          'updateNoteFields
                           :note (anki-editor-api--note note)))))
          (tagsadd (cl-set-difference (anki-editor-note-tags note)
                                      (alist-get 'tags oldnote)
                                      :test 'string=))
          (tagsdel (thread-first (alist-get 'tags oldnote)
-				(cl-set-difference (anki-editor-note-tags note)
-						   :test 'string=)
-				(cl-set-difference anki-editor-protected-tags
-						   :test 'string=))))
+                                (cl-set-difference (anki-editor-note-tags note)
+                                                   :test 'string=)
+                                (cl-set-difference anki-editor-protected-tags
+                                                   :test 'string=))))
     (anki-editor-api-with-multi
      (anki-editor-api-enqueue 'changeDeck
-			      :cards (alist-get 'cards oldnote)
-			      :deck (anki-editor-note-deck note))
+                              :cards (alist-get 'cards oldnote)
+                              :deck (anki-editor-note-deck note))
 
      (when tagsadd
        (anki-editor-api-enqueue 'addTags
                                 :notes (list (string-to-number
-					      (anki-editor-note-id note)))
+                                              (anki-editor-note-id note)))
                                 :tags (mapconcat #'identity tagsadd " ")))
      (when tagsdel
        (anki-editor-api-enqueue 'removeTags
                                 :notes (list (string-to-number
-					      (anki-editor-note-id note)))
+                                              (anki-editor-note-id note)))
                                 :tags (mapconcat #'identity tagsdel " "))))))
 
 (defun anki-editor--set-failure-reason (reason)
@@ -704,9 +704,9 @@ see `anki-editor-insert-note' which wraps this function."
              (not just-align))
     (setq anki-editor--anki-tags-cache (anki-editor-all-tags))
     (when (cl-notevery #'anki-editor-is-valid-org-tag
-		       anki-editor--anki-tags-cache)
+                       anki-editor--anki-tags-cache)
       (warn (concat "Some tags from Anki contain characters that are not"
-		    "valid in Org tags.")))))
+                    "valid in Org tags.")))))
 
 (defun anki-editor--get-buffer-tags (oldfun)
   "Append tags from Anki to the result of applying OLDFUN."
@@ -728,8 +728,8 @@ The setting is read with inheritance from the property
 `anki-editor-prop-format' if it exists, and is t else."
   (interactive)
   (let ((initial-val (anki-editor-entry-format))
-	(entry-val (org-entry-get nil anki-editor-prop-format nil t))
-	inherited-val)
+        (entry-val (org-entry-get nil anki-editor-prop-format nil t))
+        inherited-val)
     (when entry-val
       (org-entry-delete nil anki-editor-prop-format)
       (setq inherited-val (anki-editor-entry-format)))
@@ -737,7 +737,7 @@ The setting is read with inheritance from the property
       (setq inherited-val initial-val))
     (unless (equal inherited-val (not initial-val))
       (org-entry-put nil anki-editor-prop-format
-		     (symbol-name (not initial-val))))))
+                     (symbol-name (not initial-val))))))
 
 (defun anki-editor-prepend-heading ()
   "Get prepend-heading setting for entry at point.
@@ -758,8 +758,8 @@ The setting is read with inheritance from the property
 and else from variable `anki-editor-prepend-heading'."
   (interactive)
   (let ((initial-val (anki-editor-prepend-heading))
-	(entry-val (org-entry-get nil anki-editor-prop-prepend-heading nil t))
-	inherited-val)
+        (entry-val (org-entry-get nil anki-editor-prop-prepend-heading nil t))
+        inherited-val)
     (when entry-val
       (org-entry-delete nil anki-editor-prop-prepend-heading)
       (setq inherited-val (anki-editor-prepend-heading)))
@@ -767,35 +767,35 @@ and else from variable `anki-editor-prepend-heading'."
       (setq inherited-val initial-val))
     (unless (equal inherited-val (not initial-val))
       (org-entry-put nil anki-editor-prop-prepend-heading
-		     (symbol-name (not initial-val))))))
+                     (symbol-name (not initial-val))))))
 
 (defun anki-editor-note-at-point ()
   "Make a note struct from current entry."
   (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
          (format (anki-editor-entry-format))
-	 (prepend-heading (anki-editor-prepend-heading))
+         (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
          (note-type (org-entry-get nil anki-editor-prop-note-type))
          (tags (cl-set-difference (anki-editor--get-tags)
                                   anki-editor-ignored-org-tags
                                   :test #'string=))
-	 (heading (substring-no-properties (org-get-heading t t t t)))
-	 (level (org-current-level))
-	 (content-before-subheading
-	  (anki-editor--note-contents-before-subheading))
-	 (subheading-fields (anki-editor--build-fields))
-	 (fields (anki-editor--map-fields heading
-					  content-before-subheading
-					  subheading-fields
-					  note-type
-					  level
-					  prepend-heading))
-	 (exported-fields (mapcar (lambda (x)
-				    (cons
-				     (car x)
-				     (anki-editor--export-string (cdr x)
-								 format)))
-				  fields)))
+         (heading (substring-no-properties (org-get-heading t t t t)))
+         (level (org-current-level))
+         (content-before-subheading
+          (anki-editor--note-contents-before-subheading))
+         (subheading-fields (anki-editor--build-fields))
+         (fields (anki-editor--map-fields heading
+                                          content-before-subheading
+                                          subheading-fields
+                                          note-type
+                                          level
+                                          prepend-heading))
+         (exported-fields (mapcar (lambda (x)
+                                    (cons
+                                     (car x)
+                                     (anki-editor--export-string (cdr x)
+                                                                 format)))
+                                  fields)))
     (unless deck (user-error "Missing deck"))
     (unless note-type (user-error "Missing note type"))
     (make-anki-editor-note :id note-id
@@ -814,10 +814,10 @@ and else from variable `anki-editor-prepend-heading'."
       tags)))
 
 (defun anki-editor--entry-get-multivalued-property-with-inheritance (pom
-								     property)
+                                                                     property)
   "Return a list of values in a multivalued property with inheritance."
   (let* ((value (org-entry-get pom property t))
-	 (values (and value (split-string value))))
+         (values (and value (split-string value))))
     (mapcar #'org-entry-restore-space values)))
 
 (defun anki-editor--build-fields ()
@@ -826,7 +826,7 @@ and else from variable `anki-editor-prepend-heading'."
 Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (save-excursion
     (cl-loop with inhibit-message = t
-	     ;; suppress echo message from `org-babel-exp-src-block'
+             ;; suppress echo message from `org-babel-exp-src-block'
              initially (unless (org-goto-first-child)
                          (cl-return))
              for last-pt = (point)
@@ -837,19 +837,19 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              ;; which we'd like to ignore, here we skip these
              ;; elements and reset contents-begin.
              for begin = (save-excursion
-			   (cl-loop for eoh = (org-element-property
-					       :contents-begin element)
+                           (cl-loop for eoh = (org-element-property
+                                               :contents-begin element)
                                     then (org-element-property :end subelem)
-				    while eoh
+                                    while eoh
                                     for subelem = (progn
                                                     (goto-char eoh)
                                                     (org-element-context))
                                     while (memq
-					   (org-element-type subelem)
-					   '(drawer planning property-drawer))
+                                           (org-element-type subelem)
+                                           '(drawer planning property-drawer))
                                     finally return (and eoh
-							(org-element-property
-							 :begin subelem))))
+                                                        (org-element-property
+                                                         :begin subelem))))
              for end = (org-element-property :contents-end element)
              for raw = (or (and begin
                                 end
@@ -862,7 +862,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                            "")
              ;; for content = (anki-editor--export-string raw format)
              ;; collect (cons heading content)
-	     collect (cons heading raw)
+             collect (cons heading raw)
              ;; proceed to next field entry and check last-pt to
              ;; see if it's already the last entry
              do (org-forward-heading-same-level nil t)
@@ -882,153 +882,153 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 Leading whitespace, drawers, and planning content is skipped."
   (save-excursion
     (let* ((element (org-element-at-point))
-	   (begin (cl-loop for eoh = (org-element-property
-				      :contents-begin element)
-			   then (org-element-property :end subelem)
-			   while eoh
-			   for subelem = (progn
-					   (goto-char eoh)
-					   (org-element-context))
-			   while (memq (org-element-type subelem)
-				       '(drawer planning property-drawer))
-			   finally return (and eoh (org-element-property
-						    :begin subelem))))
-	   (end (cl-loop for eoh = (org-element-property
-				    :contents-begin element)
-			 then (org-element-property :end nextelem)
-			 while eoh
-			 for nextelem = (progn
-					  (goto-char eoh)
-					  (org-element-at-point))
-			 while (not (or (memq (org-element-type nextelem)
-					    '(headline))
-                                      (eobp)))
-			 finally
+           (begin (cl-loop for eoh = (org-element-property
+                                      :contents-begin element)
+                           then (org-element-property :end subelem)
+                           while eoh
+                           for subelem = (progn
+                                           (goto-char eoh)
+                                           (org-element-context))
+                           while (memq (org-element-type subelem)
+                                       '(drawer planning property-drawer))
+                           finally return (and eoh (org-element-property
+                                                    :begin subelem))))
+           (end (cl-loop for eoh = (org-element-property
+                                    :contents-begin element)
+                         then (org-element-property :end nextelem)
+                         while eoh
+                         for nextelem = (progn
+                                          (goto-char eoh)
+                                          (org-element-at-point))
+                         while (not (or (memq (org-element-type nextelem)
+                                              '(headline))
+                                        (eobp)))
+                         finally
                          return (let ((end (org-element-property :begin nextelem)))
                                   (and eoh (if (equal end begin)
                                                (org-element-property :end nextelem)
                                              end)))))
-	   (contents-raw (or (and begin
-				  end
-				  (buffer-substring-no-properties
-				   begin
-				   ;; in case the buffer is narrowed,
-				   ;; e.g. by `org-map-entries' when
-				   ;; scope is `tree'
-				   (min (point-max) end)))
-			     "")))
+           (contents-raw (or (and begin
+                                  end
+                                  (buffer-substring-no-properties
+                                   begin
+                                   ;; in case the buffer is narrowed,
+                                   ;; e.g. by `org-map-entries' when
+                                   ;; scope is `tree'
+                                   (min (point-max) end)))
+                             "")))
       contents-raw)))
 
 (defun anki-editor--map-fields (heading
-				content-before-subheading
-				subheading-fields
-				note-type
-				level
-				prepend-heading)
+                                content-before-subheading
+                                subheading-fields
+                                note-type
+                                level
+                                prepend-heading)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
 map missing fields to the `heading' and/or `content-before-subheading'.
 Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (anki-editor--with-collection-data-updated
-   (let* ((model-fields (alist-get
-                         note-type anki-editor--model-fields
-                         nil nil #'string=))
-          (property-fields (anki-editor--property-fields model-fields))
-          (named-fields (seq-uniq (append subheading-fields property-fields)
-                                  (lambda (left right)
-                                    (string= (car left) (car right)))))
-          (fields-matching (cl-intersection
+    (let* ((model-fields (alist-get
+                          note-type anki-editor--model-fields
+                          nil nil #'string=))
+           (property-fields (anki-editor--property-fields model-fields))
+           (named-fields (seq-uniq (append subheading-fields property-fields)
+                                   (lambda (left right)
+                                     (string= (car left) (car right)))))
+           (fields-matching (cl-intersection
+                             model-fields (mapcar #'car named-fields)
+                             :test #'string=))
+           (fields-missing (cl-set-difference
                             model-fields (mapcar #'car named-fields)
                             :test #'string=))
-	  (fields-missing (cl-set-difference
-                           model-fields (mapcar #'car named-fields)
-			   :test #'string=))
-	  (fields-extra (cl-set-difference
-			 (mapcar #'car named-fields) model-fields
-			 :test #'string=))
-	  (fields (cl-loop for f in fields-matching
-			   collect (cons f (alist-get
-					    f named-fields
-					    nil nil #'string=))))
-	  (heading-format anki-editor-prepend-heading-format))
-     (cond ((equal 0 (length fields-missing))
-	    (when (< 0 (length fields-extra))
-	      (user-error "Failed to map all named fields")))
-	   ((equal 1 (length fields-missing))
-	    (if (equal 0 (length fields-extra))
-		(if (equal "" (string-trim content-before-subheading))
-		    (push (cons (car fields-missing) heading)
-			  fields)
-		  (if prepend-heading
-		      (push (cons (car fields-missing)
-				  (concat
-				   (format heading-format heading)
-				   content-before-subheading))
-			    fields)
-		    (push (cons (car fields-missing)
-				content-before-subheading)
-			  fields)))
-	      (if (equal "" (string-trim content-before-subheading))
-		  (push (cons (car fields-missing)
-			      (anki-editor--concat-fields
-			       fields-extra subheading-fields level))
-			fields)
-		(if prepend-heading
-		    (push (cons (car fields-missing)
-				(concat
-				 (format heading-format heading)
-				 content-before-subheading
-				 (anki-editor--concat-fields
-				  fields-extra subheading-fields
-				  level)))
-			  fields)
-		  (push (cons (car fields-missing)
-			      (concat content-before-subheading
-				      (anki-editor--concat-fields
-				       fields-extra subheading-fields
-				       level)))
-			fields)))))
-	   ((equal 2 (length fields-missing))
-	    (if (equal 0 (length fields-extra))
-		(progn
-		  (push (cons (nth 1 fields-missing)
-			      content-before-subheading)
-			fields)
-		  (push (cons (car fields-missing)
-			      heading)
-			fields))
-	      (if (equal "" (string-trim content-before-subheading))
-		  (progn
-		    (push (cons (nth 1 fields-missing)
-				(anki-editor--concat-fields
-				 fields-extra subheading-fields level))
-			  fields)
-		    (push (cons (car fields-missing)
-				heading)
-			  fields))
-		(progn
-		  (push (cons (nth 1 fields-missing)
-			      (concat content-before-subheading
-				      (anki-editor--concat-fields
-				       fields-extra subheading-fields level)))
-			fields)
-		  (push (cons (car fields-missing)
-			      heading)
-			fields)))))
-	   ((< 2 (length fields-missing))
-	    (user-error (concat "Cannot map note fields: "
-				"more than two fields missing"))))
-     fields)))
+           (fields-extra (cl-set-difference
+                          (mapcar #'car named-fields) model-fields
+                          :test #'string=))
+           (fields (cl-loop for f in fields-matching
+                            collect (cons f (alist-get
+                                             f named-fields
+                                             nil nil #'string=))))
+           (heading-format anki-editor-prepend-heading-format))
+      (cond ((equal 0 (length fields-missing))
+             (when (< 0 (length fields-extra))
+               (user-error "Failed to map all named fields")))
+            ((equal 1 (length fields-missing))
+             (if (equal 0 (length fields-extra))
+                 (if (equal "" (string-trim content-before-subheading))
+                     (push (cons (car fields-missing) heading)
+                           fields)
+                   (if prepend-heading
+                       (push (cons (car fields-missing)
+                                   (concat
+                                    (format heading-format heading)
+                                    content-before-subheading))
+                             fields)
+                     (push (cons (car fields-missing)
+                                 content-before-subheading)
+                           fields)))
+               (if (equal "" (string-trim content-before-subheading))
+                   (push (cons (car fields-missing)
+                               (anki-editor--concat-fields
+                                fields-extra subheading-fields level))
+                         fields)
+                 (if prepend-heading
+                     (push (cons (car fields-missing)
+                                 (concat
+                                  (format heading-format heading)
+                                  content-before-subheading
+                                  (anki-editor--concat-fields
+                                   fields-extra subheading-fields
+                                   level)))
+                           fields)
+                   (push (cons (car fields-missing)
+                               (concat content-before-subheading
+                                       (anki-editor--concat-fields
+                                        fields-extra subheading-fields
+                                        level)))
+                         fields)))))
+            ((equal 2 (length fields-missing))
+             (if (equal 0 (length fields-extra))
+                 (progn
+                   (push (cons (nth 1 fields-missing)
+                               content-before-subheading)
+                         fields)
+                   (push (cons (car fields-missing)
+                               heading)
+                         fields))
+               (if (equal "" (string-trim content-before-subheading))
+                   (progn
+                     (push (cons (nth 1 fields-missing)
+                                 (anki-editor--concat-fields
+                                  fields-extra subheading-fields level))
+                           fields)
+                     (push (cons (car fields-missing)
+                                 heading)
+                           fields))
+                 (progn
+                   (push (cons (nth 1 fields-missing)
+                               (concat content-before-subheading
+                                       (anki-editor--concat-fields
+                                        fields-extra subheading-fields level)))
+                         fields)
+                   (push (cons (car fields-missing)
+                               heading)
+                         fields)))))
+            ((< 2 (length fields-missing))
+             (user-error (concat "Cannot map note fields: "
+                                 "more than two fields missing"))))
+      fields)))
 
 (defun anki-editor--concat-fields (field-names field-alist level)
   "Concat field names and content of fields in list `field-names'."
   (let ((format (anki-editor-entry-format)))
     (cl-loop for f in field-names
-	     concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
-			    (string-trim (alist-get f field-alist nil nil
-						    #'string=))
-			    "\n\n"))))
+             concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
+                            (string-trim (alist-get f field-alist nil nil
+                                                    #'string=))
+                            "\n\n"))))
 
 
 ;;; Minor mode
@@ -1051,11 +1051,11 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
               (list (cons anki-editor-prop-tags
                           (lambda (value)
                             (anki-editor--concat-multivalued-property-value
-			     anki-editor-prop-tags value)))
+                             anki-editor-prop-tags value)))
                     (cons anki-editor-prop-tags-plus
                           (lambda (value)
                             (anki-editor--concat-multivalued-property-value
-			     anki-editor-prop-tags-plus value))))))
+                             anki-editor-prop-tags-plus value))))))
 
 ;;;###autoload
 (define-minor-mode anki-editor-mode
@@ -1072,7 +1072,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   "Set up this minor mode."
   (anki-editor-api-check)
   (add-hook 'org-property-allowed-value-functions
-	    #'anki-editor--get-allowed-values-for-property nil t)
+            #'anki-editor--get-allowed-values-for-property nil t)
   (advice-add 'org-set-tags :before #'anki-editor--before-set-tags)
   (advice-add 'org-get-buffer-tags :around #'anki-editor--get-buffer-tags)
   (advice-add 'org-html-link :around #'anki-editor--ox-html-link))
@@ -1080,7 +1080,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 (defun anki-editor-teardown-minor-mode ()
   "Tear down this minor mode."
   (remove-hook 'org-property-allowed-value-functions
-	       #'anki-editor--get-allowed-values-for-property t))
+               #'anki-editor--get-allowed-values-for-property t))
 
 
 ;;; Commands
@@ -1123,7 +1123,7 @@ of that heading."
   (unwind-protect
       (progn
         (apply #'anki-editor-map-note-entries
-	       #'anki-editor--collect-note-marker match scope skip)
+               #'anki-editor--collect-note-marker match scope skip)
         (setq anki-editor--note-markers (reverse anki-editor--note-markers))
         (let ((count 0)
               (failed 0))
@@ -1132,22 +1132,22 @@ of that heading."
               (cl-loop with bar-width = 30
                        for marker in anki-editor--note-markers
                        for progress = (/ (float (cl-incf count))
-					 (length anki-editor--note-markers))
+                                         (length anki-editor--note-markers))
                        do
                        (goto-char marker)
                        (message
-			"Uploading notes in buffer %s%s [%s%s] %d/%d (%.2f%%)"
+                        "Uploading notes in buffer %s%s [%s%s] %d/%d (%.2f%%)"
                         (marker-buffer marker)
                         (if (zerop failed)
                             ""
                           (propertize (format " %d failed" failed)
                                       'face `(:foreground "red")))
                         (make-string (truncate (* bar-width progress))
-				     ?#)
+                                     ?#)
                         (make-string (- bar-width
-					(truncate (* bar-width
-						     progress)))
-				     ?.)
+                                        (truncate (* bar-width
+                                                     progress)))
+                                     ?.)
                         count
                         (length anki-editor--note-markers)
                         (* 100 progress))
@@ -1156,26 +1156,26 @@ of that heading."
                            (anki-editor--push-note (anki-editor-note-at-point))
                          (error (cl-incf failed)
                                 (anki-editor--set-failure-reason
-				 (error-message-string err))))
+                                 (error-message-string err))))
                        ;; free marker
                        (set-marker marker nil))))
           (message
            (cond
             ((zerop (length anki-editor--note-markers))
-	     "Nothing to push")
+             "Nothing to push")
             ((zerop failed)
-	     (format "Successfully pushed %d notes to Anki" count))
+             (format "Successfully pushed %d notes to Anki" count))
             (t
-	     (format (concat "Pushed %d notes to Anki, with %d failed. "
-			     "Check property drawers for details. "
-			     "\nWhen you have fixed those issues, "
-			     "try re-push the failed ones with "
-			     "\n`anki-editor-retry-failed-notes'.")
-		     count failed))))))
+             (format (concat "Pushed %d notes to Anki, with %d failed. "
+                             "Check property drawers for details. "
+                             "\nWhen you have fixed those issues, "
+                             "try re-push the failed ones with "
+                             "\n`anki-editor-retry-failed-notes'.")
+                     count failed))))))
     ;; clean up markers
     (cl-loop for m in anki-editor--note-markers
-	     do (set-marker m nil)
-	     finally do (setq anki-editor--note-markers nil))))
+             do (set-marker m nil)
+             finally do (setq anki-editor--note-markers nil))))
 
 (defun anki-editor-push-note-at-point ()
   "Push note at point to Anki.
@@ -1187,14 +1187,14 @@ subtree associated with the first heading that has one."
   (save-excursion
     (let ((note-type))
       (while
-	  (and (org-back-to-heading)
-	       (not (setq note-type
-			  (org-entry-get nil anki-editor-prop-note-type)))
-	       (org-up-heading-safe)))
+          (and (org-back-to-heading)
+               (not (setq note-type
+                          (org-entry-get nil anki-editor-prop-note-type)))
+               (org-up-heading-safe)))
       (if (not note-type)
-	  (user-error "No note to push found")
-	(anki-editor--push-note (anki-editor-note-at-point))
-	(message "Successfully pushed note at point to Anki.")))))
+          (user-error "No note to push found")
+        (anki-editor--push-note (anki-editor-note-at-point))
+        (message "Successfully pushed note at point to Anki.")))))
 
 (defun anki-editor-push-new-notes (&optional scope)
   "Push note entries without ANKI_NOTE_ID in SCOPE to Anki."
@@ -1207,7 +1207,7 @@ This command just calls `anki-editor-push-notes' with match string
 matching non-empty `ANKI_FAILURE_REASON' properties."
   (interactive)
   (anki-editor-push-notes scope
-			  (concat anki-editor-prop-failure-reason "<>\"\"")))
+                          (concat anki-editor-prop-failure-reason "<>\"\"")))
 
 (defun anki-editor-delete-note-at-point (&optional prefix)
   "Delete the note at point from Anki.
@@ -1216,32 +1216,32 @@ With PREFIX also delete it from Org."
   (save-excursion
     (let (note-type note-id)
       (while
-	  (and (org-back-to-heading)
-	       (not (setq note-type
-			  (org-entry-get nil anki-editor-prop-note-type)))
-	       (org-up-heading-safe)))
+          (and (org-back-to-heading)
+               (not (setq note-type
+                          (org-entry-get nil anki-editor-prop-note-type)))
+               (org-up-heading-safe)))
       (when (not note-type)
-	(user-error "No note to delete found"))
+        (user-error "No note to delete found"))
       (setq note-id (condition-case nil
-			(string-to-number
-			 (org-entry-get nil anki-editor-prop-note-id))
-		      (error nil)))
+                        (string-to-number
+                         (org-entry-get nil anki-editor-prop-note-id))
+                      (error nil)))
       (if (not note-id)
-	  (if prefix
-	      (message "Note at point is not in Anki (no note-id)")
-	    (user-error "Note at point is not in Anki (no note-id)"))
-	(when (yes-or-no-p
-	       (format (concat "Do you really want to delete note %s "
-			       "from Anki?")
-		       note-id))
-	  (anki-editor-api-call-result 'deleteNotes
-				       :notes (list note-id))
-	  (org-entry-delete nil anki-editor-prop-note-id)
-	  (message "Deleted note %s from Anki" note-id)))
+          (if prefix
+              (message "Note at point is not in Anki (no note-id)")
+            (user-error "Note at point is not in Anki (no note-id)"))
+        (when (yes-or-no-p
+               (format (concat "Do you really want to delete note %s "
+                               "from Anki?")
+                       note-id))
+          (anki-editor-api-call-result 'deleteNotes
+                                       :notes (list note-id))
+          (org-entry-delete nil anki-editor-prop-note-id)
+          (message "Deleted note %s from Anki" note-id)))
       (when prefix
-	(org-mark-subtree)
-	(kill-region nil nil t)
-	(message "Deleted note at point from Org")))))
+        (org-mark-subtree)
+        (kill-region nil nil t)
+        (message "Deleted note at point from Org")))))
 
 (defun anki-editor-insert-note (&optional prefix note-type)
   "Insert a note interactively.
@@ -1264,13 +1264,13 @@ When NOTE-TYPE is nil, prompt for one."
   (interactive "P")
   (let* ((deck (or (org-entry-get-with-inheritance anki-editor-prop-deck)
                    (completing-read "Deck: " (sort (anki-editor-deck-names)
-						   #'string-lessp))))
+                                                   #'string-lessp))))
          (type (or note-type
-		   (completing-read "Note type: " (sort
-						   (anki-editor-note-types)
-						   #'string-lessp))))
+                   (completing-read "Note type: " (sort
+                                                   (anki-editor-note-types)
+                                                   #'string-lessp))))
          (fields (anki-editor-api-call-result 'modelFieldNames
-					      :modelName type))
+                                              :modelName type))
          (heading (read-from-minibuffer "Note heading (optional): ")))
     (anki-editor--insert-note-skeleton prefix deck heading type fields)))
 
@@ -1281,10 +1281,10 @@ with inheritance, or from `anki-editor-default-note-type'.
 Otherwise this command is like `anki-editor-insert-note'."
   (interactive "P")
   (let ((note-type
-	 (or (org-entry-get-with-inheritance
-	      anki-editor-prop-default-note-type)
-	     anki-editor-default-note-type
-	     (user-error "No default note type set"))))
+         (or (org-entry-get-with-inheritance
+              anki-editor-prop-default-note-type)
+             anki-editor-default-note-type
+             (user-error "No default note type set"))))
     (anki-editor-insert-note prefix note-type)))
 
 (defun anki-editor-set-note-type (&optional prefix note-type)
@@ -1293,20 +1293,20 @@ With PREFIX set note type for all top-level headings in subtree.
 When NOTE-TYPE is nil, prompt for one."
   (interactive "P")
   (let ((note-type
-	 (or note-type
-	     (completing-read "Note type: " (sort
-					     (anki-editor-note-types)
-					     #'string-lessp))))
-	(level
+         (or note-type
+             (completing-read "Note type: " (sort
+                                             (anki-editor-note-types)
+                                             #'string-lessp))))
+        (level
          (if prefix
-	     (+ 1 (or (org-current-level) 0))
-	   (or (org-current-level) 0))))
+             (+ 1 (or (org-current-level) 0))
+           (or (org-current-level) 0))))
     (org-map-entries
      (lambda () (org-set-property anki-editor-prop-note-type note-type))
      (concat "LEVEL=" (number-to-string level))
      (if (and prefix
-	      (equal 1 level))
-	 nil
+              (equal 1 level))
+         nil
        'tree))))
 
 (defun anki-editor-set-default-note-type (&optional prefix)
@@ -1316,10 +1316,10 @@ with inheritance, or from `anki-editor-default-note-type'.
 Otherwise this command is like `anki-editor-set-note-type'."
   (interactive "P")
   (let ((note-type
-	 (or (org-entry-get-with-inheritance
-	      anki-editor-prop-default-note-type)
-	     anki-editor-default-note-type
-	     (user-error "No default note type set"))))
+         (or (org-entry-get-with-inheritance
+              anki-editor-prop-default-note-type)
+             anki-editor-default-note-type
+             (user-error "No default note type set"))))
     (anki-editor-set-note-type prefix note-type)))
 
 (defun anki-editor-cloze-region (&optional arg hint)
@@ -1371,14 +1371,14 @@ Otherwise this command is like `anki-editor-set-note-type'."
   (let ((ver (condition-case err
                  (anki-editor-api-call-result 'version)
                (error (error (concat "Failed to connect to Anki: %s"
-				     "\nIs Anki running with the "
-				     "AnkiConnect add-on enabled?")
-			     (error-message-string err))))))
+                                     "\nIs Anki running with the "
+                                     "AnkiConnect add-on enabled?")
+                             (error-message-string err))))))
     (if (<= anki-editor-api-version ver)
         (when (called-interactively-p 'interactive)
           (message "AnkiConnect v.%d is running" ver))
       (user-error "anki-editor requires at least version %d of AnkiConnect"
-		  anki-editor-api-version))))
+                  anki-editor-api-version))))
 
 (defun anki-editor-sync-collection ()
   "Synchronize the local Anki collection with AnkiWeb."
@@ -1427,16 +1427,16 @@ note or deck."
   (interactive)
   (let ((head (concat (org-element-normalize-string anki-editor--style-start)
                       (org-element-normalize-string
-		       (format "<!-- Updated: %s -->" (current-time-string)))
+                       (format "<!-- Updated: %s -->" (current-time-string)))
                       (when anki-editor-include-default-style
                         (org-element-normalize-string org-html-style-default))
                       (org-element-normalize-string anki-editor-html-head)
                       anki-editor--style-end)))
     (cl-loop for model in (anki-editor-note-types)
              for style = (let* ((css (alist-get
-				      'css
-				      (anki-editor-api-call-result
-				       'modelStyling :modelName model)))
+                                      'css
+                                      (anki-editor-api-call-result
+                                       'modelStyling :modelName model)))
                                 (start (string-match
                                         (regexp-quote anki-editor--style-start)
                                         css))
@@ -1448,7 +1448,7 @@ note or deck."
                                  (cl-incf end (length anki-editor--style-end))
                                  ;; skip whitespaces
                                  (when-let ((newend (string-match
-						     "[[:graph:]]" css end)))
+                                                     "[[:graph:]]" css end)))
                                    (setq end newend))
                                  (concat
                                   (substring css 0 start)
@@ -1457,7 +1457,7 @@ note or deck."
              do
              (message "Updating styles for \"%s\"..." model)
              (anki-editor-api-call-result
-	      'updateModelStyling
+              'updateModelStyling
               :model (list :name model
                            :css (concat (concat head "\n\n") style)))
              finally do (message "Updating styles...Done"))))
@@ -1467,7 +1467,7 @@ note or deck."
   (interactive)
   (cl-loop for model in (anki-editor-note-types)
            for css = (alist-get 'css (anki-editor-api-call-result
-				      'modelStyling :modelName model))
+                                      'modelStyling :modelName model))
            for start = (string-match
                         (regexp-quote anki-editor--style-start)
                         css)
