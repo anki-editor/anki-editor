@@ -58,6 +58,10 @@
 (require 'ox)
 (require 'ox-html)
 
+;; check if we run on emacs 27 or higher (emacs-version)
+(if (< emacs-major-version 27)
+    (require 'subr-x))
+
 (defgroup anki-editor nil
   "Customizations for anki-editor."
   :group 'org)
@@ -798,6 +802,10 @@ and else from variable `anki-editor-prepend-heading'."
                                   fields)))
     (unless deck (user-error "Missing deck"))
     (unless note-type (user-error "Missing note type"))
+
+    ;; Sorting fields not necessary for Anki, but it removes
+    ;; randomness which breaks our tests.
+    (setq exported-fields (sort exported-fields (lambda (a b) (string< (car a) (car b)))))
     (make-anki-editor-note :id note-id
                            :model note-type
                            :deck deck
@@ -1021,13 +1029,11 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 
 (defun anki-editor--concat-fields (field-names field-alist level)
   "Concat field names and content of fields in list `field-names'."
-  (let ((format (anki-editor-entry-format)))
     (cl-loop for f in field-names
-             concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
-                            (string-trim (alist-get f field-alist nil nil
-                                                    #'string=))
-                            "\n\n"))))
-
+             for value = (alist-get f field-alist nil nil #'string=)
+             when (stringp value)
+    	     concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
+			                (string-trim value) "\n\n")))
 
 ;;; Minor mode
 

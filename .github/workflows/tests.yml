@@ -1,0 +1,46 @@
+name: "Unit tests"
+on:
+  pull_request: {}
+
+
+jobs:
+  test-emacs-26:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: >
+          sudo apt-get -y update &&
+          sudo apt-get install -y emacs-nox
+
+      - name: Emacs test
+        run: emacs -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
+
+
+  test-emacs-27:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: >
+          sudo apt-get -y update &&
+          sudo apt-get install -y emacs-nox
+
+      - name: Emacs test
+        run: emacs -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
+
+  # # TODO Turn on when ubuntu-24.04 workers are available
+  # test-emacs-29:
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: Install dependencies
+  #       run: >
+  #         sudo apt-get -y update &&
+  #         sudo apt-get install -y emacs-nox
+
+  #     - name: Emacs test
+  #       run: emacs -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
