@@ -810,7 +810,7 @@ and else from variable `anki-editor-prepend-heading'."
                nil
                anki-editor-prop-tags)))
     (if anki-editor-org-tags-as-anki-tags
-        (append tags (org-get-tags))
+        (append tags (mapcar #'substring-no-properties (org-get-tags)))
       tags)))
 
 (defun anki-editor--entry-get-multivalued-property-with-inheritance (pom
