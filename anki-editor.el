@@ -901,13 +901,11 @@ Leading whitespace, drawers, and planning content is skipped."
                                           (goto-char eoh)
                                           (org-element-at-point))
                          while (not (or (memq (org-element-type nextelem)
-                                              '(headline))
-                                        (eobp)))
-                         finally
-                         return (let ((end (org-element-property :begin nextelem)))
-                                  (and eoh (if (equal end begin)
-                                               (org-element-property :end nextelem)
-                                             end)))))
+                                            '(headline))
+                                      (eobp)))
+                         finally return (and eoh (if (eobp)
+                                                     (org-element-property :end nextelem)
+                                                   (org-element-property :begin nextelem)))))
            (contents-raw (or (and begin
                                   end
                                   (buffer-substring-no-properties
