@@ -486,18 +486,18 @@ The implementation is borrowed and simplified from ox-html."
 
 (defun anki-editor--export-string (src fmt)
   "Export string SRC and format it if FMT."
-  (cl-ecase fmt
-    ('nil src)
-    ('t (or (org-export-string-as src
-                                  anki-editor--ox-anki-html-backend
-                                  t
-                                  anki-editor--ox-export-ext-plist)
-            ;; 8.2.10 version of
-            ;; `org-export-filter-apply-functions'
-            ;; returns nil for an input of empty string,
-            ;; which will cause AnkiConnect to fail
-            ""))))
-
+  (if fmt
+      (or (org-export-string-as
+           src
+           anki-editor--ox-anki-html-backend
+           t
+           anki-editor--ox-export-ext-plist)
+          ;; 8.2.10 version of
+          ;; `org-export-filter-apply-functions'
+          ;; returns nil for an input of empty string,
+          ;; which will cause AnkiConnect to fail
+          "")
+    src))
 
 ;;; Core primitives
 
