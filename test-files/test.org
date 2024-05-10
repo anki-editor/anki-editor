@@ -1,0 +1,87 @@
+* Simple note
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+** Front
+Simple note body
+
+** Back
+Lorem
+
+* Formatted note (formatted)
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:ANKI_FORMAT: t
+:END:
+
+** Front
+/Simple/ *note* =body=
+
+** Back
+
+#+begin_example
+Lorem ipsum
+dolor sit
+amet
+#+end_example
+
+* Formatted note (plain)
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:ANKI_FORMAT: nil
+:END:
+
+** Front
+/Simple/ *note* =body=
+
+** Back
+
+#+begin_example
+Lorem ipsum
+dolor sit
+amet
+#+end_example
+
+
+* Note without Back
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+** Front
+Simple note body
+
+* Note with attachment
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:DIR: test-attachments
+:END:
+
+[[attachment:1x1.gif][Test image]]
+
+* Note with file link
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+** Front
+Note with file link
+
+** Back
+[[file:test-attachments/1x1.gif][Test image]]
+
+
+* Cloze with text
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+** Text
+Lorem {{c1::lorem}}.
