@@ -18,7 +18,30 @@ See the [[https://github.com/louietan/anki-editor/compare/master...orgtre:anki-e
 
 Other than Emacs you need [[https://apps.ankiweb.net][Anki]], its [[https://github.com/FooSoft/anki-connect][AnkiConnect]] add-on, and [[https://curl.se][curl]] to use anki-editor. Because of AnkiConnect, anki-editor-mode needs Anki to be running (see [[https://github.com/orgtre/anki-editor/issues/5#issuecomment-1295857747][issue]] for explanation).
 
-*** Using package.el
+*** Using ~package-vc.el~
+
+If you are on Emacs 29 and newer, you can use ~package-vc-install~:
+
+#+BEGIN_SRC emacs-lisp
+  (package-vc-install
+   '(anki-editor . (:url "https://github.com/anki-editor/anki-editor")))
+#+END_SRC
+
+Additionally, [[https://github.com/slotThe/vc-use-package][vc-use-package]] provides use-package integration:
+
+#+begin_src emacs-lisp
+  (use-package anki-editor
+    :vc (:fetcher github :repo anki-editor/anki-editor))
+#+end_src
+
+Alternatively, if you're on Emacs 30, a ~:vc~ keyword is built into use-package:
+
+#+begin_src emacs-lisp
+  (use-package anki-editor
+    :vc (:url "https://github.com/anki-editor/anki-editor" :rev :newest))
+#+end_src
+
+*** Manually
 
 If you're using the built-in =package.el= package manager, first manually download this repository and then type the following in Emacs:
 
@@ -29,10 +52,24 @@ You can also first visit =anki-editor.el= in an Emacs buffer and then type =M-x 
 *** Using straight.el
 
 If you're using [[https://github.com/radian-software/straight.el][straight.el]] as package manager, install by adding this to your =init.el=:
+
 #+begin_src elisp
 (use-package anki-editor
   :defer t
   :straight (:repo "anki-editor/anki-editor"))
+#+end_src
+
+*** With Doom Emacs
+
+If you use Doom Emacs, add the followings to ~packages.el~ and ~config.el~ respectively.
+
+#+begin_src emacs-lisp
+  (package! anki-editor
+    :recipe (:host github :repo "anki-editor/anki-editor"))
+#+end_src
+
+#+begin_src emacs-lisp
+  (use-package! anki-editor)
 #+end_src
 
 ** Usage
@@ -208,7 +245,7 @@ To see the docs for the most recent commands use M-x describe-variable (for more
 
 **** anki-editor-copy-styles
 
-    Copy `org-html-style-default' and `anki-editor-html-head' to Anki card stylings.
+    Copy ~org-html-style-default~ and ~anki-editor-html-head~ to Anki card stylings.
 
 **** anki-editor-remove-styles
 
@@ -229,6 +266,7 @@ To see the docs for the most recent commands use M-x describe-variable (for more
    automatically fill note field content (e.g. ~Add note id~).
 
 *** One Way Sync with Anki
+
 To sync anki notes and decks to org see ([[https://github.com/orgtre/ankiorg][orgtre/ankiorg]]).
 
 The following items are not synchronized to org:
@@ -238,7 +276,3 @@ The following items are not synchronized to org:
 ** Demo
 
   [[./demo.gif]]
-
-** Donation
-
-The original author [[https://github.com/louietan][louietan]] developed almost all of this package in his free time! If you find it useful, consider thanking him by donating to his [[https://paypal.me/louietanlei][PayPal]] (you can verify the link and read more at the original repository [[https://github.com/louietan/anki-editor#donation][here]]).
