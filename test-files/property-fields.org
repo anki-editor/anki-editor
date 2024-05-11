@@ -1,0 +1,37 @@
+* "Front" property field
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_FIELD_FRONT: Can one define an anki-field inside an org-mode property?
+:ANKI_PREPEND_HEADING: nil
+:ANKI_DECK: Tests
+:END:
+
+** Back
+Should be included
+
+* "Front" property field with "Front" subheading
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_FIELD_FRONT: Can one define an anki-field inside an org-mode property?
+:ANKI_PREPEND_HEADING: nil
+:ANKI_DECK: Tests
+:END:
+
+** Front
+Should not be included
+
+** Back
+Should be included
+
+
+* Foreign property field
+:ANKI_NOTE_TYPE: Basic
+:ANKI_FIELD_FOREIGN: Should raise error
+:ANKI_PREPEND_HEADING: nil
+:ANKI_DECK: Tests
+
+** Front
+front
+
+** Back
+back

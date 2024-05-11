@@ -819,9 +819,13 @@ and else from variable `anki-editor-prepend-heading'."
   (let ((tags (anki-editor--entry-get-multivalued-property-with-inheritance
                nil
                anki-editor-prop-tags)))
-    (if anki-editor-org-tags-as-anki-tags
-        (append tags (mapcar #'substring-no-properties (org-get-tags)))
-      tags)))
+    (when anki-editor-org-tags-as-anki-tags
+      (setq tags (append tags (mapcar #'substring-no-properties (org-get-tags)))))
+
+    ;; Filtering out empty tags produces by org-mode coming with emacs 26
+    (cl-loop for tag in tags
+             if (and tag (not (string= tag "")))
+             collect tag)))
 
 (defun anki-editor--entry-get-multivalued-property-with-inheritance (pom
                                                                      property)
@@ -911,8 +915,8 @@ Leading whitespace, drawers, and planning content is skipped."
                                           (goto-char eoh)
                                           (org-element-at-point))
                          while (not (or (memq (org-element-type nextelem)
-                                            '(headline))
-                                      (eobp)))
+                                              '(headline))
+                                        (eobp)))
                          finally return (and eoh (if (eobp)
                                                      (org-element-property :end nextelem)
                                                    (org-element-property :begin nextelem)))))
@@ -943,7 +947,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                           note-type anki-editor--model-fields
                           nil nil #'string=))
            (property-fields (anki-editor--property-fields model-fields))
-           (named-fields (seq-uniq (append subheading-fields property-fields)
+           (named-fields (seq-uniq (append property-fields subheading-fields)
                                    (lambda (left right)
                                      (string= (car left) (car right)))))
            (fields-matching (cl-intersection
@@ -1031,11 +1035,11 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 
 (defun anki-editor--concat-fields (field-names field-alist level)
   "Concat field names and content of fields in list `field-names'."
-    (cl-loop for f in field-names
-             for value = (alist-get f field-alist nil nil #'string=)
-             when (stringp value)
-    	     concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
-			                (string-trim value) "\n\n")))
+  (cl-loop for f in field-names
+           for value = (alist-get f field-alist nil nil #'string=)
+           when (stringp value)
+           concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
+                          (string-trim value) "\n\n")))
 
 ;;; Minor mode
 
