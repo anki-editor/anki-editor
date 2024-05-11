@@ -363,30 +363,32 @@ The result is the path to the newly stored media file."
 
 (defun anki-editor--translate-latex-fragment (latex-code)
   "Translate LATEX-CODE fragment to html."
-  (cl-loop for delims in (cl-ecase anki-editor-latex-style
-                           (builtin anki-editor--native-latex-delimiters)
-                           (mathjax anki-editor--mathjax-delimiters))
-           for matches = (string-match (cl-first delims) latex-code)
-           when matches
-           do
-           (let ((display-beg (--any? (s-matches? (concat (cl-first delims) "$") it) '("\\[" "$$")))
-                 (display-end (--any? (s-matches? (cl-third delims)              it) '("\\]" "$$"))))
-             (setq latex-code (replace-match
-                               (concat (if display-beg
-                                           (concat "<p>" (anki-editor--latex-div-beg))
-                                         "")
-                                       (cl-second delims))
-                               t t latex-code))
-             (string-match (cl-third delims) latex-code)
-             (setq latex-code (replace-match
-                               (concat (cl-fourth delims)
-                                       (if display-end
-                                           (concat (anki-editor--latex-div-end)
-                                                   "</p>")
-                                         ""))
-                               t t latex-code)))
-           until matches
-           finally return latex-code))
+  (cl-flet ((matches? (re xs)
+              (seq-some (lambda (it) (string-match-p re it)) xs)))
+    (cl-loop for delims in (cl-ecase anki-editor-latex-style
+                             (builtin anki-editor--native-latex-delimiters)
+                             (mathjax anki-editor--mathjax-delimiters))
+             for matches = (string-match (cl-first delims) latex-code)
+             when matches
+             do
+             (let ((display-beg (matches? (concat (cl-first delims) "$") '("\\[" "$$")))
+                   (display-end (matches? (cl-third delims)              '("\\]" "$$"))))
+               (setq latex-code (replace-match
+                                 (concat (if display-beg
+                                             (concat "<p>" (anki-editor--latex-div-beg))
+                                           "")
+                                         (cl-second delims))
+                                 t t latex-code))
+               (string-match (cl-third delims) latex-code)
+               (setq latex-code (replace-match
+                                 (concat (cl-fourth delims)
+                                         (if display-end
+                                             (concat (anki-editor--latex-div-end)
+                                                     "</p>")
+                                           ""))
+                                 t t latex-code)))
+             until matches
+             finally return latex-code)))
 
 (defun anki-editor--translate-latex-env (latex-code)
   "Translate LATEX-CODE environment to html."
