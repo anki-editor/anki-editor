@@ -1,8 +1,9 @@
 ;;; anki-editor-ui.el --- UI for anki-editor  -*- lexical-binding: t; -*-
 
 ;; Author: orgtre
-;; URL: https://github.com/orgtre/anki-editor
-;; Package-Requires: ((emacs "25.1"))
+;; Version: 0.3.3
+;; URL: https://github.com/anki-editor/anki-editor
+;; Package-Requires: ((emacs "28.1"))
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -16,6 +17,10 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; An interactive UI for anki-editor, based on transient.
 
 ;;; Code:
 
