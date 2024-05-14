@@ -169,7 +169,7 @@ Simple note body
         (anki-editor-test--teardown)))))
 
 
-(ert-deftest test--node-at-point-for-note-with-property-field-should-render-property-field ()
+(ert-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
   "Test `anki-editor--note-at-point' should render property field."
   (save-window-excursion
     (with-current-buffer (anki-editor-test--test-org-buffer "property-fields.org")
@@ -184,7 +184,7 @@ Simple note body
                                        nil)))
         (anki-editor-test--teardown)))))
 
-(ert-deftest test--node-at-point-for-note-with-property-field-should-override-subheading-field ()
+(ert-deftest test--note-at-point-for-note-with-property-field-should-override-subheading-field ()
   "Test `anki-editor--note-at-point' should override subheading field."
   (save-window-excursion
     (with-current-buffer (anki-editor-test--test-org-buffer "property-fields.org")
@@ -200,7 +200,7 @@ Simple note body
         (anki-editor-test--teardown)))))
 
 
-(ert-deftest test--node-at-point-for-note-with-unknown-property-field-should-raise-error ()
+(ert-deftest test--note-at-point-for-note-with-unknown-property-field-should-raise-error ()
   "Test `anki-editor--note-at-point' should raise error for unknown property field."
   (save-window-excursion
     (with-current-buffer (anki-editor-test--test-org-buffer "property-fields.org")
