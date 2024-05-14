@@ -82,6 +82,7 @@ Origian values are stored in
 You can restore the original values by calling
 `anki-editor-test--restore-variables'."
   (cl-loop for (variable . value) in variables
+           when (boundp variable)
            do (push (cons variable (symbol-value variable)) anki-editor-test--saved-variable-values)
            do (set variable value)))
 
@@ -167,6 +168,50 @@ Simple note body
 ")) nil)))
         (anki-editor-test--teardown)))))
 
+
+(ert-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
+  "Test `anki-editor--note-at-point' should render property field."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "property-fields.org")
+      (anki-editor-test--go-to-headline "\"Front\" property field")
+      (anki-editor-test--setup)
+      (unwind-protect
+          (should (equal
+                   (anki-editor-note-at-point)
+                   #s(anki-editor-note nil "Basic" "Tests"
+                                       (("Back" . "<p>\nShould be included\n</p>\n")
+                                        ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                                       nil)))
+        (anki-editor-test--teardown)))))
+
+(ert-deftest test--note-at-point-for-note-with-property-field-should-override-subheading-field ()
+  "Test `anki-editor--note-at-point' should override subheading field."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "property-fields.org")
+      (anki-editor-test--go-to-headline "\"Front\" property field with \"Front\" subheading")
+      (anki-editor-test--setup)
+      (unwind-protect
+          (should (equal
+                   (anki-editor-note-at-point)
+                   #s(anki-editor-note nil "Basic" "Tests"
+                                       (("Back" . "<p>\nShould be included\n</p>\n")
+                                        ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                                       nil)))
+        (anki-editor-test--teardown)))))
+
+
+(ert-deftest test--note-at-point-for-note-with-unknown-property-field-should-raise-error ()
+  "Test `anki-editor--note-at-point' should raise error for unknown property field."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "property-fields.org")
+      (anki-editor-test--go-to-headline "Foreign property field")
+      (anki-editor-test--setup)
+      (unwind-protect
+          (should
+           (equal
+            (should-error (anki-editor-note-at-point) :type 'user-error)
+            ' (user-error "Failed to map all named fields")))
+        (anki-editor-test--teardown)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
