@@ -26,7 +26,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def handle_action(self, action, params=None):
         if action == 'modelNames':
-            return ['Basic', 'Cloze']
+            return ['Basic', 'Cloze', 'Basic (and reversed card)']
         elif action == 'modelFieldNames':
             model_name = params['modelName']
             return self.action_model_field_names_response(model_name)
@@ -49,6 +49,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             return ['Front', 'Back']
         elif model_name == 'Cloze':
             return ['Text', 'Back Extra']
+        elif model_name == 'Basic (and reversed card)':
+            return ['Front', 'Back']
         else:
             raise ValueError(f"Unknown model name: {model_name}")
 
