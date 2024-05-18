@@ -100,6 +100,7 @@ You can restore the original values by calling
      (anki-editor-prepend-heading . nil)
      (org-attach-dir-relative . t)
      (anki-editor-prepend-heading-format . "test *%s*")
+     (org-html-htmlize-output-type . nil)
      (org-html-link-use-abs-url . nil)))
   (advice-add 'org-export-get-reference :override #'anki-editor-test--org-export-get-reference)
   (anki-editor-test-ensure-python-server)
@@ -268,19 +269,21 @@ Simple note body
     (save-window-excursion
       (with-current-buffer (anki-editor-test--test-org-buffer "examples.org")
         (anki-editor-test--setup)
-        (org-map-entries
-         (lambda ()
-           ;; Only entries which have ANKI_NOTE_TYPE
-           (when (org-entry-get (point) "ANKI_NOTE_TYPE")
-             (unwind-protect
-                 (let ((note-at-point nil)
-                       (headline nil)
-                       (expected-note nil))
-                   (setq headline (org-entry-get (point) "ITEM"))
-                   (setq note-at-point (anki-editor-note-at-point))
-                   (setq expected-note (cdr (assoc headline test-items-alist)))
-                   (should (equal note-at-point expected-note)))
-               ))))))))
+        (unwind-protect
+            (org-map-entries
+             (lambda ()
+               ;; Only entries which have ANKI_NOTE_TYPE
+               (when (org-entry-get (point) "ANKI_NOTE_TYPE")
+                 (unwind-protect
+                     (let ((note-at-point nil)
+                           (headline nil)
+                           (expected-note nil))
+                       (setq headline (org-entry-get (point) "ITEM"))
+                       (setq note-at-point (anki-editor-note-at-point))
+                       (setq expected-note (cdr (assoc headline test-items-alist)))
+                       (should (equal note-at-point expected-note)))))))
+          (anki-editor-test--teardown))))))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
