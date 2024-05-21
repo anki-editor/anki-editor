@@ -896,19 +896,20 @@ Leading whitespace, drawers, and planning content is skipped."
   (save-excursion
     (let* ((element (org-element-at-point))
            (begin (anki-editor--skip-drawer element))
-           (end (cl-loop for eoh = (org-element-property
-                                    :contents-begin element)
-                         then (org-element-property :end nextelem)
-                         while eoh
-                         for nextelem = (progn
-                                          (goto-char eoh)
-                                          (org-element-at-point))
-                         while (not (or (memq (org-element-type nextelem)
-                                              '(headline))
-                                        (eobp)))
-                         finally return (and eoh (if (eobp)
-                                                     (org-element-property :end nextelem)
-                                                   (org-element-property :begin nextelem)))))
+           (end (progn
+                  (goto-char begin)
+                  (cl-loop
+                   for eoh = (org-element-property :contents-begin element)
+                   then (org-element-property :end nextelem)
+                   while eoh
+                   for nextelem = (progn (goto-char eoh)
+                                         (org-element-at-point))
+                   while (not (or (memq (org-element-type nextelem) '(headline))
+                                  (eobp)))
+                   finally return (and eoh
+                                       (if (eobp)
+                                           (org-element-property :end nextelem)
+                                         (org-element-property :begin nextelem))))))
            (contents-raw (or (and begin
                                   end
                                   (buffer-substring-no-properties
