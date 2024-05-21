@@ -834,6 +834,18 @@ and else from variable `anki-editor-prepend-heading'."
          (values (and value (split-string value))))
     (mapcar #'org-entry-restore-space values)))
 
+(defun anki-editor--skip-drawer (element)
+  "Skip drawers and planning content and return point.
+ELEMENT should be the Org element at point."
+  (cl-loop for eoh = (org-element-property :contents-begin element)
+           then (org-element-property :end subelem)
+           while eoh
+           for subelem = (progn (goto-char eoh)
+                                (org-element-context))
+           while (memq (org-element-type subelem)
+                       '(drawer planning property-drawer))
+           finally return (and eoh (org-element-property :begin subelem))))
+
 (defun anki-editor--build-fields ()
   "Build a list of fields from subheadings of current heading.
 
@@ -850,20 +862,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
              ;; contents-begin includes drawers and scheduling data,
              ;; which we'd like to ignore, here we skip these
              ;; elements and reset contents-begin.
-             for begin = (save-excursion
-                           (cl-loop for eoh = (org-element-property
-                                               :contents-begin element)
-                                    then (org-element-property :end subelem)
-                                    while eoh
-                                    for subelem = (progn
-                                                    (goto-char eoh)
-                                                    (org-element-context))
-                                    while (memq
-                                           (org-element-type subelem)
-                                           '(drawer planning property-drawer))
-                                    finally return (and eoh
-                                                        (org-element-property
-                                                         :begin subelem))))
+             for begin = (save-excursion (anki-editor--skip-drawer element))
              for end = (org-element-property :contents-end element)
              for raw = (or (and begin
                                 end
@@ -896,17 +895,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 Leading whitespace, drawers, and planning content is skipped."
   (save-excursion
     (let* ((element (org-element-at-point))
-           (begin (cl-loop for eoh = (org-element-property
-                                      :contents-begin element)
-                           then (org-element-property :end subelem)
-                           while eoh
-                           for subelem = (progn
-                                           (goto-char eoh)
-                                           (org-element-context))
-                           while (memq (org-element-type subelem)
-                                       '(drawer planning property-drawer))
-                           finally return (and eoh (org-element-property
-                                                    :begin subelem))))
+           (begin (anki-editor--skip-drawer element))
            (end (cl-loop for eoh = (org-element-property
                                     :contents-begin element)
                          then (org-element-property :end nextelem)
