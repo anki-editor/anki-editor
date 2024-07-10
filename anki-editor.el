@@ -372,7 +372,7 @@ The result is the path to the newly stored media file."
              when matches
              do
              (let ((display-beg (matches? (concat (cl-first delims) "$") '("\\[" "$$")))
-                   (display-end (matches? (cl-third delims)              '("\\]" "$$"))))
+                   (display-end (matches? (concat "^" (cl-third delims)) '("\\]" "$$"))))
                (setq latex-code (replace-match
                                  (concat (if display-beg
                                              (concat "<p>" (anki-editor--latex-div-beg))
