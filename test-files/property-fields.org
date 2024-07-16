@@ -25,10 +25,12 @@ Should be included
 
 
 * Foreign property field
+:PROPERTIES:
 :ANKI_NOTE_TYPE: Basic
 :ANKI_FIELD_FOREIGN: Should raise error
 :ANKI_PREPEND_HEADING: nil
 :ANKI_DECK: Tests
+:END:
 
 ** Front
 front

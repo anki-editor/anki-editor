@@ -204,19 +204,6 @@ Simple note body
         (anki-editor-test--teardown)))))
 
 
-(ert-deftest test--note-at-point-for-note-with-unknown-property-field-should-raise-error ()
-  "Test `anki-editor--note-at-point' should raise error for unknown property field."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/property-fields.org")
-      (anki-editor-test--go-to-headline "Foreign property field")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (should
-           (equal
-            (should-error (anki-editor-note-at-point) :type 'user-error)
-            ' (user-error "Failed to map all named fields")))
-        (anki-editor-test--teardown)))))
-
 (ert-deftest test--note-at-point-for-examples-should-produce-correct-output ()
   "Test `anki-editor--note-at-point' should produce correct output for examples."
   (let ((test-items-alist

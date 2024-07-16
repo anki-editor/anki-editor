@@ -137,8 +137,7 @@ See `anki-editor-insert-note', whose behavior this controls."
   :type 'boolean)
 
 (defcustom anki-editor-default-note-type "Basic"
-  "Default note type when creating anki-editor notes in org.
-Only used when no ANKI_DEFAULT_NOTE_TYPE property is inherited."
+  "Default note type when creating anki-editor notes in org."
   :type 'string)
 
 (defcustom anki-editor-gui-browse-ensure-foreground t
@@ -781,7 +780,8 @@ and else from variable `anki-editor-prepend-heading'."
          (format (anki-editor-entry-format))
          (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
-         (note-type (org-entry-get nil anki-editor-prop-note-type))
+         (note-type (or (org-entry-get nil anki-editor-prop-note-type)
+                        anki-editor-default-note-type))
          (tags (cl-set-difference (anki-editor--get-tags)
                                   anki-editor-ignored-org-tags
                                   :test #'string=))
@@ -1177,6 +1177,22 @@ of that heading."
              do (set-marker m nil)
              finally do (setq anki-editor--note-markers nil))))
 
+(defun anki-editor--goto-nearest-note-type ()
+  "Go to the nearest note type.
+If no note type is found in any parent heading, instead go to the
+beginning of the current heading."
+  (let ((pt (point))
+        note-type)
+    (while
+        (and (org-back-to-heading)
+             (not (setq note-type
+                        (org-entry-get nil anki-editor-prop-note-type)))
+             (org-up-heading-safe)))
+    ;; If no note type was found, use a default fallback.
+    (when (not note-type)
+      (goto-char pt)
+      (org-back-to-heading))))
+
 (defun anki-editor-push-note-at-point ()
   "Push note at point to Anki.
 
@@ -1185,16 +1201,9 @@ go up one heading at a time, until heading level 1, and push the
 subtree associated with the first heading that has one."
   (interactive)
   (save-excursion
-    (let ((note-type))
-      (while
-          (and (org-back-to-heading)
-               (not (setq note-type
-                          (org-entry-get nil anki-editor-prop-note-type)))
-               (org-up-heading-safe)))
-      (if (not note-type)
-          (user-error "No note to push found")
-        (anki-editor--push-note (anki-editor-note-at-point))
-        (message "Successfully pushed note at point to Anki.")))))
+    (anki-editor--goto-nearest-note-type)
+    (anki-editor--push-note (anki-editor-note-at-point))
+    (message "Successfully pushed note at point to Anki.")))
 
 (defun anki-editor-push-new-notes (&optional scope)
   "Push note entries without ANKI_NOTE_ID in SCOPE to Anki."
@@ -1214,18 +1223,12 @@ matching non-empty `ANKI_FAILURE_REASON' properties."
 With PREFIX also delete it from Org."
   (interactive "P")
   (save-excursion
-    (let (note-type note-id)
-      (while
-          (and (org-back-to-heading)
-               (not (setq note-type
-                          (org-entry-get nil anki-editor-prop-note-type)))
-               (org-up-heading-safe)))
-      (when (not note-type)
-        (user-error "No note to delete found"))
+    (let (note-id)
+      (anki-editor--goto-nearest-note-type)
       (setq note-id (condition-case nil
                         (string-to-number
                          (org-entry-get nil anki-editor-prop-note-id))
-                      (error nil)))
+                      (user-error "No note to delete found")))
       (if (not note-id)
           (if prefix
               (message "Note at point is not in Anki (no note-id)")
