@@ -780,7 +780,7 @@ and else from variable `anki-editor-prepend-heading'."
          (format (anki-editor-entry-format))
          (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
-         (note-type (or (org-entry-get nil anki-editor-prop-note-type)
+         (note-type (or (org-entry-get-with-inheritance anki-editor-prop-note-type)
                         anki-editor-default-note-type))
          (tags (cl-set-difference (anki-editor--get-tags)
                                   anki-editor-ignored-org-tags
