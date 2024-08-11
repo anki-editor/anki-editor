@@ -51,6 +51,7 @@
    [""
     ("I" " insert note" anki-editor-insert-note :level 1)
     ("T" " set note type" anki-editor-set-note-type :level 1)
+    ("D" " set note deck" anki-editor-set-deck :level 1)
     ("d" " delete note" anki-editor-delete-note-at-point :level 1)]]
   [["Push"
     ("." " note at point        " anki-editor-push-note-at-point :level 2)
