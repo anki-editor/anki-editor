@@ -617,12 +617,14 @@ see `anki-editor-insert-note' which wraps this function."
         (setf (anki-editor-note-id note)
               (org-entry-get nil anki-editor-prop-note-id))
         (org-set-property anki-editor-prop-note-hash
-                          (anki-editor--calc-note-hash note)))
+                          (anki-editor--calc-note-hash note))
+        :create)
     (let* ((old-note-hash (org-entry-get nil anki-editor-prop-note-hash))
            (new-note-hash (anki-editor--calc-note-hash note)))
       (when (not (string= old-note-hash new-note-hash))
         (anki-editor--push-note note)
-        (org-set-property anki-editor-prop-note-hash new-note-hash)))))
+        (org-set-property anki-editor-prop-note-hash new-note-hash)
+        :update))))
 
 (defun anki-editor--push-note (note)
   "Request AnkiConnect for updating or creating NOTE."
@@ -1154,6 +1156,9 @@ of that heading."
                #'anki-editor--collect-note-marker match scope skip)
         (setq anki-editor--note-markers (reverse anki-editor--note-markers))
         (let ((count 0)
+              (created 0)
+              (updated 0)
+              (skipped 0)
               (failed 0))
           (save-excursion
             (anki-editor--with-collection-data-updated
@@ -1181,7 +1186,11 @@ of that heading."
                         (* 100 progress))
                        (anki-editor--clear-failure-reason)
                        (condition-case-unless-debug err
-                           (anki-editor--maybe-push-note (anki-editor-note-at-point))
+                           (pcase (anki-editor--maybe-push-note
+                                   (anki-editor-note-at-point))
+                             ((pred (eq :create) (cl-incf created)))
+                             ((pred (eq :update) (cl-incf updated)))
+                             (_ (cl-incf skipped)))
                          (error (cl-incf failed)
                                 (anki-editor--set-failure-reason
                                  (error-message-string err))))
@@ -1192,14 +1201,17 @@ of that heading."
             ((zerop (length anki-editor--note-markers))
              "Nothing to push")
             ((zerop failed)
-             (format "Successfully pushed %d notes to Anki" count))
+             (format (concat "Successfully processed %d notes."
+                             "Created %d, Updated %d, Skipped %d.")
+                     count created updated skipped))
             (t
-             (format (concat "Pushed %d notes to Anki, with %d failed. "
+             (format (concat "Successfully processed %d notes."
+                             "Created %d, Updated %d, Skipped %d, Failed %d."
                              "Check property drawers for details. "
                              "\nWhen you have fixed those issues, "
                              "try re-push the failed ones with "
                              "\n`anki-editor-retry-failed-notes'.")
-                     count failed))))))
+                     count created updated skipped failed))))))
     ;; clean up markers
     (cl-loop for m in anki-editor--note-markers
              do (set-marker m nil)
