@@ -504,6 +504,7 @@ The implementation is borrowed and simplified from ox-html."
 
 (defconst anki-editor-prop-note-type "ANKI_NOTE_TYPE")
 (defconst anki-editor-prop-note-id "ANKI_NOTE_ID")
+(defconst anki-editor-prop-note-hash "ANKI_NOTE_HASH")
 (defconst anki-editor-prop-deck "ANKI_DECK")
 (defconst anki-editor-prop-format "ANKI_FORMAT")
 (defconst anki-editor-prop-prepend-heading "ANKI_PREPEND_HEADING")
@@ -608,6 +609,21 @@ see `anki-editor-insert-note' which wraps this function."
       (org-goto-first-child)
       (end-of-line))))
 
+(defun anki-editor--maybe-push-note (note)
+  "Push NOTE if modified since last time it was pushed."
+  (if (null (anki-editor-note-id note))
+      (progn
+        (anki-editor--create-note note)
+        (setf (anki-editor-note-id note)
+              (org-entry-get nil anki-editor-prop-note-id))
+        (org-set-property anki-editor-prop-note-hash
+                          (anki-editor--calc-note-hash note)))
+    (let* ((old-note-hash (org-entry-get nil anki-editor-prop-note-hash))
+           (new-note-hash (anki-editor--calc-note-hash note)))
+      (when (not (string= old-note-hash new-note-hash))
+        (anki-editor--push-note note)
+        (org-set-property anki-editor-prop-note-hash new-note-hash)))))
+
 (defun anki-editor--push-note (note)
   "Request AnkiConnect for updating or creating NOTE."
   (cond
@@ -615,6 +631,18 @@ see `anki-editor-insert-note' which wraps this function."
     (anki-editor--create-note note))
    (t
     (anki-editor--update-note note))))
+
+(defun anki-editor--calc-note-hash (note)
+  "Calculate an md5 hash of the contents of NOTE."
+  (secure-hash
+   'md5
+   (mapconcat #'prin1-to-string
+              (mapcar (lambda (f) (funcall f note))
+                      (list #'anki-editor-note-id
+                            #'anki-editor-note-model
+                            #'anki-editor-note-deck
+                            #'anki-editor-note-fields
+                            #'anki-editor-note-tags)))))
 
 (defun anki-editor--set-note-id (id)
   "Set note-id of anki-editor note at point to ID."
@@ -1153,7 +1181,7 @@ of that heading."
                         (* 100 progress))
                        (anki-editor--clear-failure-reason)
                        (condition-case-unless-debug err
-                           (anki-editor--push-note (anki-editor-note-at-point))
+                           (anki-editor--maybe-push-note (anki-editor-note-at-point))
                          (error (cl-incf failed)
                                 (anki-editor--set-failure-reason
                                  (error-message-string err))))
