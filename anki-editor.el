@@ -280,7 +280,7 @@ request directly, it simply queues the request."
    :id (string-to-number (or (anki-editor-note-id note) "0"))
    :deckName (anki-editor-note-deck note)
    :modelName (anki-editor-note-model note)
-   :fields (anki-editor-note-fields note)
+   :fields (anki-editor--export-fields (anki-editor-note-fields note))
    :options (list :allowDuplicate (or anki-editor-allow-duplicates
                                       :json-false))
    ;; Convert tags to a vector since empty list is identical to nil
@@ -485,20 +485,30 @@ The implementation is borrowed and simplified from ox-html."
         (t (throw 'giveup nil)))))
    (funcall oldfun link desc info)))
 
-(defun anki-editor--export-string (src fmt)
+(defun anki-editor--export-string (src)
   "Export string SRC and format it if FMT."
-  (if fmt
-      (or (org-export-string-as
-           src
-           anki-editor--ox-anki-html-backend
-           t
-           anki-editor--ox-export-ext-plist)
-          ;; 8.2.10 version of
-          ;; `org-export-filter-apply-functions'
-          ;; returns nil for an input of empty string,
-          ;; which will cause AnkiConnect to fail
-          "")
-    src))
+  (or (org-export-string-as
+       src
+       anki-editor--ox-anki-html-backend
+       t
+       anki-editor--ox-export-ext-plist)
+      ;; 8.2.10 version of
+      ;; `org-export-filter-apply-functions'
+      ;; returns nil for an input of empty string,
+      ;; which will cause AnkiConnect to fail
+      ""))
+
+(defun anki-editor--export-fields (fields)
+  "Export FIELDS which should be a list of the form ((name contents) ...).
+If the result of anki-editor-entry-format is nil then FIELDS is returned as is,
+otherwise it will be returned with the same structure, but each individual
+contents will have been exported."
+  (let* ((export-p (anki-editor-entry-format)))
+    (if export-p
+        (mapcar (lambda (x) (cons (car x) (anki-editor--export-string (cdr x))))
+                fields)
+      fields)))
+
 
 ;;; Core primitives
 
@@ -754,6 +764,7 @@ see `anki-editor-insert-note' which wraps this function."
   (anki-editor-api-call-result 'modelNames))
 
 (defun anki-editor-entry-format ()
+  "Get format setting for entry at point."
   (read (or (org-entry-get-with-inheritance anki-editor-prop-format t) "t")))
 
 (defun anki-editor-toggle-format ()
@@ -807,7 +818,6 @@ and else from variable `anki-editor-prepend-heading'."
 (defun anki-editor-note-at-point ()
   "Make a note struct from current entry."
   (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
-         (format (anki-editor-entry-format))
          (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
          (note-type (or (org-entry-get nil anki-editor-prop-note-type)
@@ -826,23 +836,16 @@ and else from variable `anki-editor-prepend-heading'."
                                           note-type
                                           level
                                           prepend-heading))
-         (exported-fields (mapcar (lambda (x)
-                                    (cons
-                                     (car x)
-                                     (anki-editor--export-string (cdr x)
-                                                                 format)))
-                                  fields)))
+         ;; Sorting fields not necessary for Anki, but it removes
+         ;; randomness which breaks our tests.
+         (fields (sort fields (lambda (a b) (string< (car a) (car b))))))
     (unless deck (user-error "Missing deck"))
     (unless note-type (user-error "Missing note type"))
-
-    ;; Sorting fields not necessary for Anki, but it removes
-    ;; randomness which breaks our tests.
-    (setq exported-fields (sort exported-fields (lambda (a b) (string< (car a) (car b)))))
     (make-anki-editor-note :id note-id
                            :model note-type
                            :deck deck
                            :tags tags
-                           :fields exported-fields)))
+                           :fields fields)))
 
 (defun anki-editor--get-tags ()
   "Return list of tags of org entry at point."
@@ -903,8 +906,6 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                                  ;; scope is `tree'
                                  (min (point-max) end)))
                            "")
-             ;; for content = (anki-editor--export-string raw format)
-             ;; collect (cons heading content)
              collect (cons heading raw)
              ;; proceed to next field entry and check last-pt to
              ;; see if it's already the last entry
