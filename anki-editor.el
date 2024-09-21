@@ -1201,17 +1201,18 @@ of that heading."
             ((zerop (length anki-editor--note-markers))
              "Nothing to push")
             ((zerop failed)
-             (format (concat "Successfully processed %d notes."
-                             "Created %d, Updated %d, Skipped %d.")
+             (format (concat "Processed %d notes. "
+                             "| Created: %d | Updated %d | Skipped %d |")
                      count created updated skipped))
             (t
-             (format (concat "Successfully processed %d notes."
-                             "Created %d, Updated %d, Skipped %d, Failed %d."
-                             "Check property drawers for details. "
+             (format (concat "Processed %d notes. "
+                             "| Created: %d | Updated: %d | Skipped: %d | %s |"
+                             "\nCheck property drawers for details. "
                              "\nWhen you have fixed those issues, "
                              "try re-push the failed ones with "
                              "\n`anki-editor-retry-failed-notes'.")
-                     count created updated skipped failed))))))
+                     count created updated skipped
+                     (propertize (format "Failed: %d" failed) 'face '(:foreground "red"))))))))
     ;; clean up markers
     (cl-loop for m in anki-editor--note-markers
              do (set-marker m nil)
