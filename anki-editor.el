@@ -301,23 +301,34 @@ callback on each result as appropriate."
            (get-req (lambda (req) (plist-get req :request)))
            (multi-request-body (vconcat (mapcar get-req requests)))
            (multi-response (anki-editor-api-call 'multi :actions multi-request-body))
-           (responses (alist-get 'result multi-response)))
+           (responses (alist-get 'result multi-response))
+           (count 0)
+           (successes 0)
+           (errors 0))
       (cl-loop for request in requests
-               for response in responses collect
+               for response in responses
+               collect
                (let ((err (and (listp response) (alist-get 'error response)))
                      (res (and (listp response) (alist-get 'result response)))
                      (on-success (plist-get request :success))
                      (on-error (plist-get request :error)))
+                 (anki-editor--draw-progress-bar
+                  "Processing responses"
+                  (cl-incf count)
+                  (length responses)
+                  errors)
                  (condition-case nil
                      (if err
-                         (and on-error (funcall on-error err))
-                       (and on-success (funcall on-success res)))
+                         (progn (cl-incf errors)
+                                (and on-error (funcall on-error err)))
+                       (progn (cl-incf successes)
+                              (and on-success (funcall on-success res))))
                    ;; since the only reference to note is enclosed in the callback,
                    ;; and the callback failed, the best we can do is warn and make
                    ;; sure it doesn't stop the processing of further notes.
                    ;; maybe we can pull the noteId out of the request's params?
                    ;; something to look into.
-                   (error (warn "%s handler failed.\n  request: %s\n  response: %s\n  handler: %s"
+                   (error (warn "%s handler failed.\n\nrequest: %s\n\nresponse: %s\n\nhandler: %s"
                                 (if err "error" "success")
                                 request response (if err on-error on-success)))))))))
 
@@ -1285,6 +1296,21 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
            (length anki-editor--note-markers) (buffer-name) (point))
   (push (point-marker) anki-editor--note-markers))
 
+(cl-defun anki-editor--draw-progress-bar (title count total &optional (errors 0) (width 30))
+  "Draw a progress bar."
+  (let ((progress (/ (float count) total)))
+    (message "%s [%s%s] %d/%d (%.2f%%)%s"
+             title
+             (make-string (truncate (* width progress)) ?#)
+             (make-string (- width (truncate (* width progress))) ?.)
+             count
+             total
+             (* 100 progress)
+             (if (zerop errors)
+                 ""
+               (propertize (format " %d errors" errors)
+                           'face `(:foreground "red"))))))
+
 (defun anki-editor-push-notes (&optional scope match &rest skip)
   "Build notes from headings that MATCH within SCOPE and push them to Anki.
 
@@ -1325,34 +1351,24 @@ of that heading."
               (failed 0))
           (save-excursion
             (anki-editor--with-collection-data-updated
-              (cl-loop with bar-width = 30
-                       for marker in anki-editor--note-markers
-                       for progress = (/ (float (cl-incf count))
-                                         (length anki-editor--note-markers))
+              (cl-loop for marker in anki-editor--note-markers
                        do
                        (goto-char marker)
-                       (message
-                        "Uploading notes in buffer %s%s [%s%s] %d/%d (%.2f%%)"
-                        (marker-buffer marker)
-                        (if (zerop failed)
-                            ""
-                          (propertize (format " %d failed" failed)
-                                      'face `(:foreground "red")))
-                        (make-string (truncate (* bar-width progress))
-                                     ?#)
-                        (make-string (- bar-width
-                                        (truncate (* bar-width
-                                                     progress)))
-                                     ?.)
-                        count
-                        (length anki-editor--note-markers)
-                        (* 100 progress))
-                       (let ((note (anki-editor-note-at-point)))
-                         (anki-editor--process-note note))
+                       (anki-editor--draw-progress-bar
+                        (format "Processing notes in %s" (marker-buffer marker))
+                        (cl-incf count)
+                        (length anki-editor--note-markers))
+                       (let* ((note (anki-editor-note-at-point))
+                              (branch (anki-editor--process-note note)))
+                         (cl-case branch
+                           (:create (cl-incf created))
+                           (:update (cl-incf updated))
+                           (:skip (cl-incf skipped))))
                        ;; free marker
                        (set-marker marker nil))
+              (message "Sending %s notes to Anki... " (+ created updated))
               ;; some requests can initiate follow-up requests
-              ;; so we keep processing until the queue is empty.
+              ;; so we keep processing until all queues are empty.
               (while (anki-editor-api--get-active-queue)
                 (anki-editor-api-dispatch-queue))))
           (message
