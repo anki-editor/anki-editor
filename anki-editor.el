@@ -66,6 +66,10 @@
   "Customizations for anki-editor."
   :group 'org)
 
+(defcustom anki-editor-export-note-fields-on-push t
+  "Whether to export the fields of a note when pushing to anki."
+  :type 'boolean)
+
 (defcustom anki-editor-break-consecutive-braces-in-latex nil
   "If non-nil, automatically separate consecutive `}' in latex by spaces.
 This prevents early closing of cloze."
@@ -919,7 +923,8 @@ Return :create, :update, or :skip as appropriate."
 
 (defun anki-editor-entry-format ()
   "Get format setting for entry at point."
-  (read (or (org-entry-get-with-inheritance anki-editor-prop-format t) "t")))
+  (read (or (org-entry-get-with-inheritance anki-editor-prop-format t)
+            (if anki-editor-export-note-fields-on-push "t" "nil"))))
 
 (defun anki-editor-toggle-format ()
   "Toggle format setting for entry at point.
