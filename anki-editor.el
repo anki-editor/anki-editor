@@ -243,6 +243,72 @@ Raise an error if applicable."
     (when .error (error .error))
     .result))
 
+(defvar anki-editor--api-active-queue 1
+  "Determines which anki-editor--api-request-queue is active.")
+(defvar anki-editor--api-request-queue-1 nil
+  "Queued requests for anki-editor-api-call-multi.")
+(defvar anki-editor--api-request-queue-2 nil
+  "Queued requests for anki-editor-api-call-multi.")
+
+(defun anki-editor-api--make-queued-request (request success error)
+  (list :request request :success success :error error))
+
+(defun anki-editor-api--get-active-queue ()
+  (or (and (= anki-editor--api-active-queue 1)
+           anki-editor--api-request-queue-1)
+      anki-editor--api-request-queue-2))
+
+(defun anki-editor-api--push-active-queue (request)
+  (if (= anki-editor--api-active-queue 1)
+      (push request anki-editor--api-request-queue-1)
+    (push request anki-editor--api-request-queue-2)))
+
+(defun anki-editor-api--toggle-active-queue ()
+  (if (= anki-editor--api-active-queue 1)
+      (setq anki-editor--api-active-queue 2
+            anki-editor--api-request-queue-1 nil)
+    (setq anki-editor--api-active-queue 1
+          anki-editor--api-request-queue-2 nil)))
+
+(cl-defun anki-editor-api-enqueue-request (action params &rest callbacks &key success error)
+  "Queue ACTION request with PARAMS for later dispatch.
+ACTION and PARAMS should be in the same format that
+anki-editor-api-call expects. Dispatch the request queue
+with anki-editor-api-dispatch-queue."
+  (let ((request nil))
+    (when params
+      (push params request)
+      (push :params request))
+    (push anki-editor-api-version request)
+    (push :version request)
+    (push action request)
+    (push :action request)
+    (anki-editor-api--push-active-queue
+     (anki-editor-api--make-queued-request request success error))))
+
+(defun anki-editor-api-dispatch-queue ()
+  "Dispatch requests enqueued with anki-editor-api-enqueue-request.
+Returns a list of the return values from calling the request :success or :error
+callback on each result as appropriate."
+  (when-let (queue (anki-editor-api--get-active-queue))
+    (anki-editor-api--toggle-active-queue)
+    (let* ((requests (reverse queue))
+           (get-req (lambda (req) (plist-get req :request)))
+           (multi-request-body (vconcat (mapcar get-req requests)))
+           (multi-response (anki-editor-api-call 'multi :actions multi-request-body))
+           (responses (alist-get 'result multi-response)))
+      (cl-loop for request in requests
+               for response in responses collect
+               (let ((err (and (listp response) (alist-get 'error response)))
+                     (res (and (listp response) (alist-get 'result response)))
+                     (on-success (plist-get request :success))
+                     (on-error (plist-get request :error)))
+                 ;; TODO catch errors when processing
+                 ;; they shouldn't stop further responses from processing
+                 (if err
+                     (and on-error (funcall on-error err))
+                   (and on-success (funcall on-success res))))))))
+
 (defmacro anki-editor-api-with-multi (&rest body)
   "Use in combination with `anki-editor-api-enqueue' to combine
 multiple api calls into a single `multi' call, return the results
@@ -527,7 +593,7 @@ contents will have been exported."
 (defconst anki-editor-org-tag-regexp "^\\([[:alnum:]_@#%]+\\)+$")
 
 (cl-defstruct anki-editor-note
-  id model deck fields tags)
+  id model deck fields tags hash marker)
 
 (defvar anki-editor--collection-data-updated nil
   "Whether or not collection data is updated from Anki.
@@ -619,6 +685,91 @@ see `anki-editor-insert-note' which wraps this function."
       (org-goto-first-child)
       (end-of-line))))
 
+(defun anki-editor--process-note (note)
+  "Process NOTE.
+If the NOTE's id is nil then enqueue a create-note action.
+
+If instead the hash property of the note at (anki-editor-note-marker NOTE)
+is not the same as the hash calculated from NOTE then enqueue an update-note
+action.
+
+Otherwise the note is identical to last time we pushed to anki,
+so do nothing.
+
+Return :create, :update, or :skip as appropriate."
+  (save-excursion
+    (goto-char (anki-editor-note-marker note))
+    (anki-editor--clear-failure-reason))
+  (if (null (anki-editor-note-id note))
+      (progn
+        (anki-editor--enqueue-create-note note)
+        :create)
+    (let* ((old-note-hash (anki-editor-note-hash note))
+           (new-note-hash (anki-editor--calc-note-hash note)))
+      (if (not (string= old-note-hash new-note-hash))
+          (progn
+            (setf (anki-editor-note-hash note) new-note-hash)
+            (anki-editor--enqueue-update-note note)
+            :update)
+        :skip))))
+
+(defun anki-editor--make-set-note-failure-reason (note)
+  (lambda (result)
+    (save-excursion
+      (goto-char (anki-editor-note-marker note))
+      (anki-editor--set-failure-reason result))))
+
+(defun anki-editor--enqueue-create-note (note)
+  "Enqueue a create-note action for NOTE."
+  (anki-editor-api-enqueue-request
+   'createDeck (list :deck (anki-editor-note-deck note)))
+  (anki-editor-api-enqueue-request
+   'addNote
+   (list :note (anki-editor-api--note note))
+   :success (lambda (result)
+              (save-excursion
+                (goto-char (anki-editor-note-marker note))
+                (setf (anki-editor-note-id note) (number-to-string result))
+                (anki-editor--set-note-id result)
+                (anki-editor--set-note-hash
+                 (anki-editor--calc-note-hash note))))
+   :error (anki-editor--make-set-note-failure-reason note)))
+
+(defun anki-editor--enqueue-update-note (note)
+  "Enqueue an update-note action for NOTE."
+  (anki-editor-api-enqueue-request
+   'updateNote
+   (if-let (tags (anki-editor-note-tags note))
+       (list :note (anki-editor-api--note note)
+             :tags (vconcat tags))
+     (list :note (anki-editor-api--note note)))
+   :success (lambda (_)
+              (save-excursion
+                (goto-char (anki-editor-note-marker note))
+                (anki-editor--set-note-hash (anki-editor-note-hash note))
+                (anki-editor--enqueue-change-deck note)))
+   :error (anki-editor--make-set-note-failure-reason note)))
+
+(defun anki-editor--enqueue-change-deck (note)
+  "Enqueue a change-deck action for NOTE."
+  (anki-editor-api-enqueue-request
+   'notesInfo
+   (list :notes (list (string-to-number (anki-editor-note-id note))))
+   :success (lambda (result)
+              (anki-editor-api-enqueue-request
+               'changeDeck
+               (list :deck (anki-editor-note-deck note)
+                     ;; since notesInfo operates on a list of notes
+                     ;; it returns a list of noteInfos. We only care about
+                     ;; the one note though, so just grab the car of the result.
+                     :cards (alist-get 'cards (car result)))
+               :success (lambda (_)
+                          (save-excursion
+                            (goto-char (anki-editor-note-marker note))
+                            (anki-editor--set-note-hash (anki-editor-note-hash note))))
+               :error (anki-editor--make-set-note-failure-reason note)))
+   :error (anki-editor--make-set-note-failure-reason note)))
+
 (defun anki-editor--maybe-push-note (note)
   "Push NOTE if modified since last time it was pushed."
   (if (null (anki-editor-note-id note))
@@ -661,6 +812,10 @@ see `anki-editor-insert-note' which wraps this function."
   (unless id
     (error "Note creation failed for unknown reason"))
   (org-set-property anki-editor-prop-note-id (number-to-string id)))
+
+(defun anki-editor--set-note-hash (hash)
+  "Set note-hash of anki-editor note at point to HASH."
+  (org-set-property anki-editor-prop-note-hash hash))
 
 (defun anki-editor--create-note (note)
   "Request AnkiConnect for creating NOTE."
@@ -820,6 +975,7 @@ and else from variable `anki-editor-prepend-heading'."
   (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
          (prepend-heading (anki-editor-prepend-heading))
          (note-id (org-entry-get nil anki-editor-prop-note-id))
+         (hash (org-entry-get nil anki-editor-prop-note-hash))
          (note-type (or (org-entry-get nil anki-editor-prop-note-type)
                         anki-editor-default-note-type))
          (tags (cl-set-difference (anki-editor--get-tags)
@@ -845,7 +1001,9 @@ and else from variable `anki-editor-prepend-heading'."
                            :model note-type
                            :deck deck
                            :tags tags
-                           :fields fields)))
+                           :fields fields
+                           :hash hash
+                           :marker (point-marker))))
 
 (defun anki-editor--get-tags ()
   "Return list of tags of org entry at point."
@@ -1185,18 +1343,14 @@ of that heading."
                         count
                         (length anki-editor--note-markers)
                         (* 100 progress))
-                       (anki-editor--clear-failure-reason)
-                       (condition-case-unless-debug err
-                           (pcase (anki-editor--maybe-push-note
-                                   (anki-editor-note-at-point))
-                             ((pred (eq :create) (cl-incf created)))
-                             ((pred (eq :update) (cl-incf updated)))
-                             (_ (cl-incf skipped)))
-                         (error (cl-incf failed)
-                                (anki-editor--set-failure-reason
-                                 (error-message-string err))))
+                       (let ((note (anki-editor-note-at-point)))
+                         (anki-editor--process-note note))
                        ;; free marker
-                       (set-marker marker nil))))
+                       (set-marker marker nil))
+              ;; some requests can initiate follow-up requests
+              ;; so we keep processing until the queue is empty.
+              (while (anki-editor-api--get-active-queue)
+                (anki-editor-api-dispatch-queue))))
           (message
            (cond
             ((zerop (length anki-editor--note-markers))
