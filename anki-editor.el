@@ -304,33 +304,35 @@ callback on each result as appropriate."
            (responses (alist-get 'result multi-response))
            (count 0)
            (successes 0)
-           (errors 0))
-      (cl-loop for request in requests
-               for response in responses
-               collect
-               (let ((err (and (listp response) (alist-get 'error response)))
-                     (res (and (listp response) (alist-get 'result response)))
-                     (on-success (plist-get request :success))
-                     (on-error (plist-get request :error)))
-                 (anki-editor--draw-progress-bar
-                  "Processing responses"
-                  (cl-incf count)
-                  (length responses)
-                  errors)
-                 (condition-case nil
-                     (if err
-                         (progn (cl-incf errors)
-                                (and on-error (funcall on-error err)))
-                       (progn (cl-incf successes)
-                              (and on-success (funcall on-success res))))
-                   ;; since the only reference to note is enclosed in the callback,
-                   ;; and the callback failed, the best we can do is warn and make
-                   ;; sure it doesn't stop the processing of further notes.
-                   ;; maybe we can pull the noteId out of the request's params?
-                   ;; something to look into.
-                   (error (warn "%s handler failed.\n\nrequest: %s\n\nresponse: %s\n\nhandler: %s"
-                                (if err "error" "success")
-                                request response (if err on-error on-success)))))))))
+           (errors 0)
+           (results
+            (cl-loop for request in requests
+                     for response in responses
+                     collect
+                     (let ((err (and (listp response) (alist-get 'error response)))
+                           (res (and (listp response) (alist-get 'result response)))
+                           (on-success (plist-get request :success))
+                           (on-error (plist-get request :error)))
+                       (anki-editor--draw-progress-bar
+                        "Processing responses"
+                        (cl-incf count)
+                        (length responses)
+                        errors)
+                       (condition-case nil
+                           (if err
+                               (progn (cl-incf errors)
+                                      (and on-error (funcall on-error err)))
+                             (progn (cl-incf successes)
+                                    (and on-success (funcall on-success res))))
+                         ;; since the only reference to note is enclosed in the callback,
+                         ;; and the callback failed, the best we can do is warn and make
+                         ;; sure it doesn't stop the processing of further notes.
+                         ;; maybe we can pull the noteId out of the request's params?
+                         ;; something to look into.
+                         (error (warn "%s handler failed.\n\nrequest: %s\n\nresponse: %s\n\nhandler: %s"
+                                      (if err "error" "success")
+                                      request response (if err on-error on-success)))))) ))
+      (list :count count :successes successes :errors errors :results results))))
 
 (defmacro anki-editor-api-with-multi (&rest body)
   "Use in combination with `anki-editor-api-enqueue' to combine
@@ -758,7 +760,8 @@ Return :create, :update, or :skip as appropriate."
                 ;; the hash is calculated based on the contents of
                 ;; the note struct, so update id first.
                 (setf (anki-editor-note-id note) (number-to-string result))
-                (anki-editor--set-note-hash (anki-editor--calc-note-hash note))))
+                (anki-editor--set-note-hash (anki-editor--calc-note-hash note)))
+              :created-note)
    :error (anki-editor--make-set-note-failure-reason note)))
 
 (defun anki-editor--enqueue-update-note (note)
@@ -778,7 +781,8 @@ Return :create, :update, or :skip as appropriate."
                 (anki-editor--set-note-hash (anki-editor-note-hash note))
                 ;; maybe this whole function should be a multi call.
                 ;; can you have a multi in a multi? will anki process it?
-                (anki-editor--enqueue-change-deck note)))
+                (anki-editor--enqueue-change-deck note))
+              :updated-note)
    :error (anki-editor--make-set-note-failure-reason note)))
 
 (defun anki-editor--enqueue-change-deck (note)
@@ -797,7 +801,8 @@ Return :create, :update, or :skip as appropriate."
                :success (lambda (_)
                           (save-excursion
                             (goto-char (anki-editor-note-marker note))
-                            (anki-editor--set-note-hash (anki-editor-note-hash note))))
+                            (anki-editor--set-note-hash (anki-editor-note-hash note)))
+                          :updated-deck)
                :error (anki-editor--make-set-note-failure-reason note)))
    :error (anki-editor--make-set-note-failure-reason note)))
 
@@ -1345,8 +1350,10 @@ of that heading."
                #'anki-editor--collect-note-marker match scope skip)
         (setq anki-editor--note-markers (reverse anki-editor--note-markers))
         (let ((count 0)
-              (created 0)
-              (updated 0)
+              (queued-created 0)
+              (cards-created 0)
+              (queued-updated 0)
+              (cards-updated 0)
               (skipped 0)
               (failed 0))
           (save-excursion
@@ -1361,32 +1368,45 @@ of that heading."
                        (let* ((note (anki-editor-note-at-point))
                               (branch (anki-editor--process-note note)))
                          (cl-case branch
-                           (:create (cl-incf created))
-                           (:update (cl-incf updated))
+                           (:create (cl-incf queued-created))
+                           (:update (cl-incf queued-updated))
                            (:skip (cl-incf skipped))))
                        ;; free marker
                        (set-marker marker nil))
-              (message "Sending %s notes to Anki... " (+ created updated))
-              ;; some requests can initiate follow-up requests
-              ;; so we keep processing until all queues are empty.
-              (while (anki-editor-api--get-active-queue)
-                (anki-editor-api-dispatch-queue))))
+              (message "Sending %d notes to Anki... " (+ queued-created queued-updated))
+              (let ((results nil))
+                ;; some requests can initiate follow-up requests
+                ;; so we keep processing until all queues are empty.
+                (while (anki-editor-api--get-active-queue)
+                  (push (anki-editor-api-dispatch-queue) results))
+                (cl-loop for result in results
+                         for responses = (plist-get result :results)
+                         for errors = (plist-get result :errors)
+                         do
+                         (setq failed (+ failed errors))
+                         (cl-loop for response in responses
+                                  do
+                                  (cl-case response
+                                    (:created-note (cl-incf cards-created))
+                                    (:updated-note (cl-incf cards-updated))))))))
           (message
            (cond
             ((zerop (length anki-editor--note-markers))
              "Nothing to push")
             ((zerop failed)
-             (format (concat "Processed %d notes. "
-                             "| Created: %d | Updated %d | Skipped %d |")
-                     count created updated skipped))
+             (format (concat "Processed %d notes: "
+                             "[ Created: %d/%d | Updated %d/%d | Skipped %d ]")
+                     count
+                     cards-created queued-created
+                     cards-updated queued-updated
+                     skipped))
             (t
-             (format (concat "Processed %d notes. "
-                             "| Created: %d | Updated: %d | Skipped: %d | %s |"
-                             "\nCheck property drawers for details. "
-                             "\nWhen you have fixed those issues, "
-                             "try re-push the failed ones with "
-                             "\n`anki-editor-retry-failed-notes'.")
-                     count created updated skipped
+             (format (concat "Processed %d notes: "
+                             "[ Created: %d/%d | Updated: %d/%d | Skipped: %d | %s ]")
+                     count
+                     cards-created queued-created
+                     cards-updated queued-updated
+                     skipped
                      (propertize (format "Failed: %d" failed) 'face '(:foreground "red"))))))))
     ;; clean up markers
     (cl-loop for m in anki-editor--note-markers
