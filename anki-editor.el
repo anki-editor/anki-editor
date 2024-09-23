@@ -244,7 +244,7 @@ Raise an error if applicable."
     .result))
 
 (defvar anki-editor--api-active-queue 1
-  "Determines which anki-editor--api-request-queue is active.")
+  "Determines which anki-editor--api-request-queue is accepting requests.")
 (defvar anki-editor--api-request-queue-1 nil
   "Queued requests for anki-editor-api-call-multi.")
 (defvar anki-editor--api-request-queue-2 nil
@@ -254,9 +254,9 @@ Raise an error if applicable."
   (list :request request :success success :error error))
 
 (defun anki-editor-api--get-active-queue ()
-  (or (and (= anki-editor--api-active-queue 1)
-           anki-editor--api-request-queue-1)
-      anki-editor--api-request-queue-2))
+  (if (= anki-editor--api-active-queue 1)
+      anki-editor--api-request-queue-1
+    anki-editor--api-request-queue-2))
 
 (defun anki-editor-api--push-active-queue (request)
   (if (= anki-editor--api-active-queue 1)
@@ -274,7 +274,8 @@ Raise an error if applicable."
   "Queue ACTION request with PARAMS for later dispatch.
 ACTION and PARAMS should be in the same format that
 anki-editor-api-call expects. Dispatch the request queue
-with anki-editor-api-dispatch-queue."
+with anki-editor-api-dispatch-queue, after which SUCCESS
+and ERROR callbacks will be processed as appropriate."
   (let ((request nil))
     (when params
       (push params request)
@@ -288,7 +289,7 @@ with anki-editor-api-dispatch-queue."
 
 (defun anki-editor-api-dispatch-queue ()
   "Dispatch requests enqueued with anki-editor-api-enqueue-request.
-Returns a list of the return values from calling the request :success or :error
+Returns a list of the return values from calling the :success or :error
 callback on each result as appropriate."
   (when-let (queue (anki-editor-api--get-active-queue))
     (anki-editor-api--toggle-active-queue)
@@ -303,11 +304,18 @@ callback on each result as appropriate."
                      (res (and (listp response) (alist-get 'result response)))
                      (on-success (plist-get request :success))
                      (on-error (plist-get request :error)))
-                 ;; TODO catch errors when processing
-                 ;; they shouldn't stop further responses from processing
-                 (if err
-                     (and on-error (funcall on-error err))
-                   (and on-success (funcall on-success res))))))))
+                 (condition-case nil
+                     (if err
+                         (and on-error (funcall on-error err))
+                       (and on-success (funcall on-success res)))
+                   ;; since the only reference to note is enclosed in the callback,
+                   ;; and the callback failed, the best we can do is warn and make
+                   ;; sure it doesn't stop the processing of further notes.
+                   ;; maybe we can pull the noteId out of the request's params?
+                   ;; something to look into.
+                   (error (warn "%s handler failed.\n  request: %s\n  response: %s\n  handler: %s"
+                                (if err "error" "success")
+                                request response (if err on-error on-success)))))))))
 
 (defmacro anki-editor-api-with-multi (&rest body)
   "Use in combination with `anki-editor-api-enqueue' to combine
@@ -565,13 +573,15 @@ The implementation is borrowed and simplified from ox-html."
       ""))
 
 (defun anki-editor--export-fields (fields)
-  "Export FIELDS which should be a list of the form ((name contents) ...).
+  "Export FIELDS, which should be a list of the form ((name . contents) ...).
 If the result of anki-editor-entry-format is nil then FIELDS is returned as is,
 otherwise it will be returned with the same structure, but each individual
 contents will have been exported."
   (let* ((export-p (anki-editor-entry-format)))
     (if export-p
-        (mapcar (lambda (x) (cons (car x) (anki-editor--export-string (cdr x))))
+        (mapcar (lambda (x)
+                  (cons (car x)
+                        (anki-editor--export-string (cdr x))))
                 fields)
       fields)))
 
@@ -729,10 +739,11 @@ Return :create, :update, or :skip as appropriate."
    :success (lambda (result)
               (save-excursion
                 (goto-char (anki-editor-note-marker note))
-                (setf (anki-editor-note-id note) (number-to-string result))
                 (anki-editor--set-note-id result)
-                (anki-editor--set-note-hash
-                 (anki-editor--calc-note-hash note))))
+                ;; the hash is calculated based on the contents of
+                ;; the note struct, so update id first.
+                (setf (anki-editor-note-id note) (number-to-string result))
+                (anki-editor--set-note-hash (anki-editor--calc-note-hash note))))
    :error (anki-editor--make-set-note-failure-reason note)))
 
 (defun anki-editor--enqueue-update-note (note)
@@ -741,12 +752,17 @@ Return :create, :update, or :skip as appropriate."
    'updateNote
    (if-let (tags (anki-editor-note-tags note))
        (list :note (anki-editor-api--note note)
+             ;; the empty list is treated as None when decoded
+             ;; on anki's side, which breaks the api, so convert
+             ;; to vector here just in case.
              :tags (vconcat tags))
      (list :note (anki-editor-api--note note)))
    :success (lambda (_)
               (save-excursion
                 (goto-char (anki-editor-note-marker note))
                 (anki-editor--set-note-hash (anki-editor-note-hash note))
+                ;; maybe this whole function should be a multi call.
+                ;; can you have a multi in a multi? will anki process it?
                 (anki-editor--enqueue-change-deck note)))
    :error (anki-editor--make-set-note-failure-reason note)))
 
@@ -769,23 +785,6 @@ Return :create, :update, or :skip as appropriate."
                             (anki-editor--set-note-hash (anki-editor-note-hash note))))
                :error (anki-editor--make-set-note-failure-reason note)))
    :error (anki-editor--make-set-note-failure-reason note)))
-
-(defun anki-editor--maybe-push-note (note)
-  "Push NOTE if modified since last time it was pushed."
-  (if (null (anki-editor-note-id note))
-      (progn
-        (anki-editor--create-note note)
-        (setf (anki-editor-note-id note)
-              (org-entry-get nil anki-editor-prop-note-id))
-        (org-set-property anki-editor-prop-note-hash
-                          (anki-editor--calc-note-hash note))
-        :create)
-    (let* ((old-note-hash (org-entry-get nil anki-editor-prop-note-hash))
-           (new-note-hash (anki-editor--calc-note-hash note)))
-      (when (not (string= old-note-hash new-note-hash))
-        (anki-editor--push-note note)
-        (org-set-property anki-editor-prop-note-hash new-note-hash)
-        :update))))
 
 (defun anki-editor--push-note (note)
   "Request AnkiConnect for updating or creating NOTE."
