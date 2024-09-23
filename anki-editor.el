@@ -250,9 +250,9 @@ Raise an error if applicable."
 (defvar anki-editor--api-active-queue 1
   "Determines which anki-editor--api-request-queue is accepting requests.")
 (defvar anki-editor--api-request-queue-1 nil
-  "Queued requests for anki-editor-api-call-multi.")
+  "Queued requests for anki-editor-api-dispatch-queue.")
 (defvar anki-editor--api-request-queue-2 nil
-  "Queued requests for anki-editor-api-call-multi.")
+  "Queued requests for anki-editor-api-dispatch-queue.")
 
 (defun anki-editor-api--make-queued-request (request success error)
   (list :request request :success success :error error))
@@ -293,8 +293,11 @@ and ERROR callbacks will be processed as appropriate."
 
 (defun anki-editor-api-dispatch-queue ()
   "Dispatch requests enqueued with anki-editor-api-enqueue-request.
-Returns a list of the return values from calling the :success or :error
-callback on each result as appropriate."
+Returns a property list containing the keys :count, :successes,
+:errors, and :results. These keys correspond to the count of
+responses processed, the count of successful responses, the count
+of unsuccessful responses, and a list of the return values from
+the passed callbacks."
   (when-let (queue (anki-editor-api--get-active-queue))
     (anki-editor-api--toggle-active-queue)
     (let* ((requests (reverse queue))
