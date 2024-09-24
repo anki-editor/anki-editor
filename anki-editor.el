@@ -848,6 +848,9 @@ Return :create, :update, or :skip as appropriate."
      (anki-editor-api-enqueue 'addNote
                               :note (anki-editor-api--note note)))
     (nth 1)
+    (number-to-string)
+    (setf (anki-editor-note-id note))
+    (string-to-number)
     (anki-editor--set-note-id)))
 
 (defun anki-editor--update-note (note)
@@ -1449,7 +1452,10 @@ subtree associated with the first heading that has one."
   (interactive)
   (save-excursion
     (anki-editor--goto-nearest-note-type)
-    (anki-editor--push-note (anki-editor-note-at-point))
+    (let ((note-at-point (anki-editor-note-at-point)))
+      (anki-editor--push-note note-at-point)
+      (anki-editor--set-note-hash
+       (anki-editor--calc-note-hash note-at-point)))
     (message "Successfully pushed note at point to Anki.")))
 
 (defun anki-editor-push-new-notes (&optional scope)
