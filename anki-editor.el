@@ -334,7 +334,7 @@ the passed callbacks."
                          ;; something to look into.
                          (error (warn "%s handler failed.\n\nrequest: %s\n\nresponse: %s\n\nhandler: %s"
                                       (if err "error" "success")
-                                      request response (if err on-error on-success)))))) ))
+                                      request response (if err on-error on-success))))))))
       (list :count count :successes successes :errors errors :results results))))
 
 (defmacro anki-editor-api-with-multi (&rest body)
@@ -1352,7 +1352,8 @@ of that heading."
         (apply #'anki-editor-map-note-entries
                #'anki-editor--collect-note-marker match scope skip)
         (setq anki-editor--note-markers (reverse anki-editor--note-markers))
-        (let ((count 0)
+        (let ((modified-buffers nil)
+              (count 0)
               (queued-created 0)
               (cards-created 0)
               (queued-updated 0)
@@ -1372,8 +1373,10 @@ of that heading."
                        (let* ((note (anki-editor-note-at-point))
                               (branch (anki-editor--process-note note)))
                          (cl-case branch
-                           (:create (cl-incf queued-created))
-                           (:update (cl-incf queued-updated))
+                           (:create (cl-incf queued-created)
+                                    (cl-pushnew (current-buffer) modified-buffers))
+                           (:update (cl-incf queued-updated)
+                                    (cl-pushnew (current-buffer) modified-buffers))
                            (:skip (cl-incf skipped))))
                        ;; free marker
                        (set-marker marker nil))
@@ -1413,7 +1416,9 @@ of that heading."
                      cards-created queued-created
                      cards-updated queued-updated
                      skipped
-                     (propertize (format "Failed: %d" failed) 'face '(:foreground "red"))))))))
+                     (propertize (format "Failed: %d" failed) 'face '(:foreground "red"))))))
+          (cl-loop for b in modified-buffers
+                   do (with-current-buffer b (save-buffer)))))
     ;; clean up markers
     (cl-loop for m in anki-editor--note-markers
              do (set-marker m nil)
