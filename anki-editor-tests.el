@@ -271,7 +271,80 @@ Simple note body
                        (should (equal note-at-point expected-note)))))))
           (anki-editor-test--teardown))))))
 
+(ert-deftest test--anki-editor--map-fields-cloze-default ()
+  "Test `anki-editor--map-fields' should process default note."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
+      (anki-editor-test--setup)
+      (unwind-protect
+          (let* ((anki-editor-swap-two-fields nil)
+                 (note (progn
+                         (anki-editor-test--go-to-headline "Default note")
+                         (anki-editor-note-at-point)))
+                 (fields (anki-editor-note-fields note))
+                 (first-field (nth 0 fields))
+                 (second-field (nth 1 fields)))
+            (should (and (string= "Back Extra" (car first-field))
+                         (string-match "Default note" (cdr first-field))))
+            (should (and (string= "Text" (car second-field))
+                         (string-match "This is the {{c1::content}}." (cdr second-field)))))
+        (anki-editor-test--teardown)))))
 
+(ert-deftest test--anki-editor--map-fields-cloze-default-with-extra ()
+  "Test `anki-editor--map-fields' should process default note with extra."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
+      (anki-editor-test--setup)
+      (unwind-protect
+          (let* ((anki-editor-swap-two-fields nil)
+                 (note (progn
+                         (anki-editor-test--go-to-headline "Default note with Extra")
+                         (anki-editor-note-at-point)))
+                 (fields (anki-editor-note-fields note))
+                 (first-field (nth 0 fields))
+                 (second-field (nth 1 fields)))
+            (should (and (string= "Back Extra" (car first-field))
+                         (string-match "This is the extra content." (cdr first-field))))
+            (should (and (string= "Text" (car second-field))
+                         (string-match "This is the {{c1::content}}." (cdr second-field)))))
+        (anki-editor-test--teardown)))))
+
+(ert-deftest test--anki-editor--map-fields-cloze-should-not-swap-heading-and-content-before-subheadings ()
+  "Test `anki-editor--map-fields' should not swap heading and content before subheadings."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
+      (unwind-protect
+          (let* ((anki-editor-swap-two-fields nil)
+                 (note (progn
+                         (anki-editor-test--go-to-headline "Text subheading omitted")
+                         (anki-editor-note-at-point)))
+                 (fields (anki-editor-note-fields note))
+                 (first-field (nth 0 fields))
+                 (second-field (nth 1 fields)))
+            (should (and (string= "Extra" (car first-field))
+                         (string-match "This is the {{c1::content}}." (cdr first-field))))
+            (should (and (string= "Text" (car second-field))
+                         (string-match "Text subheading omitted" (cdr second-field)))))
+        (anki-editor-test--teardown)))))
+
+(ert-deftest test--anki-editor--map-fields-cloze-should-swap-heading-and-content-before-subheadings ()
+  "Test `anki-editor--map-fields' should swap heading and content before subheadings."
+  (save-window-excursion
+    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
+      (anki-editor-test--setup)
+      (unwind-protect
+          (let* ((anki-editor-swap-two-fields '("Cloze"))
+                 (note (progn
+                         (anki-editor-test--go-to-headline "Text subheading omitted")
+                         (anki-editor-note-at-point)))
+                 (fields (anki-editor-note-fields note))
+                 (first-field (nth 0 fields))
+                 (second-field (nth 1 fields)))
+            (should (and (string= "Back Extra" (car first-field))
+                         (string-match "Text subheading omitted" (cdr first-field))))
+            (should (and (string= "Text" (car second-field))
+                         (string-match "This is the {{c1::content}}." (cdr second-field)))))
+        (anki-editor-test--teardown)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
