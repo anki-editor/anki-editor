@@ -1377,7 +1377,9 @@ of that heading."
                            (:skip (cl-incf skipped))))
                        ;; free marker
                        (set-marker marker nil))
-              (message "Sending %d notes to Anki... " (+ queued-created queued-updated))
+              (when (> (+ queued-created queued-updated) 0)
+                (message "Sending %d notes to Anki... "
+                         (+ queued-created queued-updated)))
               (let ((results nil))
                 ;; some requests can initiate follow-up requests
                 ;; so we keep processing until all queues are empty.
