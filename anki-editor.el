@@ -727,9 +727,9 @@ Otherwise the note is identical to last time we pushed to anki,
 so do nothing.
 
 Return :create, :update, or :skip as appropriate."
-  (save-excursion
-    (goto-char (anki-editor-note-marker note))
-    (anki-editor--clear-failure-reason))
+  (set-buffer (marker-buffer (anki-editor-note-marker note)))
+  (goto-char (anki-editor-note-marker note))
+  (anki-editor--clear-failure-reason)
   (if (null (anki-editor-note-id note))
       (progn
         (anki-editor--enqueue-create-note note)
@@ -745,9 +745,9 @@ Return :create, :update, or :skip as appropriate."
 
 (defun anki-editor--make-set-note-failure-reason (note)
   (lambda (result)
-    (save-excursion
-      (goto-char (anki-editor-note-marker note))
-      (anki-editor--set-failure-reason result))))
+    (set-buffer (marker-buffer (anki-editor-note-marker note)))
+    (goto-char (anki-editor-note-marker note))
+    (anki-editor--set-failure-reason result)))
 
 (defun anki-editor--enqueue-create-note (note)
   "Enqueue a create-note action for NOTE."
@@ -757,13 +757,13 @@ Return :create, :update, or :skip as appropriate."
    'addNote
    (list :note (anki-editor-api--note note))
    :success (lambda (result)
-              (save-excursion
-                (goto-char (anki-editor-note-marker note))
-                (anki-editor--set-note-id result)
-                ;; the hash is calculated based on the contents of
-                ;; the note struct, so update id first.
-                (setf (anki-editor-note-id note) (number-to-string result))
-                (anki-editor--set-note-hash (anki-editor--calc-note-hash note)))
+              (set-buffer (marker-buffer (anki-editor-note-marker note)))
+              (goto-char (anki-editor-note-marker note))
+              (anki-editor--set-note-id result)
+              ;; the hash is calculated based on the contents of
+              ;; the note struct, so update id first.
+              (setf (anki-editor-note-id note) (number-to-string result))
+              (anki-editor--set-note-hash (anki-editor--calc-note-hash note))
               :created-note)
    :error (anki-editor--make-set-note-failure-reason note)))
 
@@ -779,12 +779,12 @@ Return :create, :update, or :skip as appropriate."
              :tags (vconcat tags))
      (list :note (anki-editor-api--note note)))
    :success (lambda (_)
-              (save-excursion
-                (goto-char (anki-editor-note-marker note))
-                (anki-editor--set-note-hash (anki-editor-note-hash note))
-                ;; maybe this whole function should be a multi call.
-                ;; can you have a multi in a multi? will anki process it?
-                (anki-editor--enqueue-change-deck note))
+              (set-buffer (marker-buffer (anki-editor-note-marker note)))
+              (goto-char (anki-editor-note-marker note))
+              (anki-editor--set-note-hash (anki-editor-note-hash note))
+              ;; maybe this whole function should be a multi call.
+              ;; can you have a multi in a multi? will anki process it?
+              (anki-editor--enqueue-change-deck note)
               :updated-note)
    :error (anki-editor--make-set-note-failure-reason note)))
 
@@ -802,9 +802,9 @@ Return :create, :update, or :skip as appropriate."
                      ;; the one note though, so just grab the car of the result.
                      :cards (alist-get 'cards (car result)))
                :success (lambda (_)
-                          (save-excursion
-                            (goto-char (anki-editor-note-marker note))
-                            (anki-editor--set-note-hash (anki-editor-note-hash note)))
+                          (set-buffer (marker-buffer (anki-editor-note-marker note)))
+                          (goto-char (anki-editor-note-marker note))
+                          (anki-editor--set-note-hash (anki-editor-note-hash note))
                           :updated-deck)
                :error (anki-editor--make-set-note-failure-reason note)))
    :error (anki-editor--make-set-note-failure-reason note)))
@@ -1359,10 +1359,11 @@ of that heading."
               (cards-updated 0)
               (skipped 0)
               (failed 0))
-          (save-excursion
+          (save-window-excursion
             (anki-editor--with-collection-data-updated
               (cl-loop for marker in anki-editor--note-markers
                        do
+                       (set-buffer (marker-buffer marker))
                        (goto-char marker)
                        (anki-editor--draw-progress-bar
                         (format "Processing notes in %s" (marker-buffer marker))
