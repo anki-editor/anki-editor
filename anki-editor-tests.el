@@ -159,17 +159,21 @@ Front content
       (anki-editor-test--go-to-headline "Simple note")
       (anki-editor-test--setup)
       (unwind-protect
-          (should (equal
-                   (anki-editor-note-at-point)
-                   #s(anki-editor-note nil "Basic" "Tests"
-                                       (("Back" . "<p>
+          (let ((expected-note
+                 #s(anki-editor-note nil "Basic" "Tests"
+                                     (("Back" . "<p>
 Lorem
 </p>
 ")
-                                        ("Front" . "<p>
+                                      ("Front" . "<p>
 Simple note body
 </p>
-")) nil nil nil)))
+")) nil nil nil))
+                (note-at-point (anki-editor-note-at-point)))
+            (setf (anki-editor-note-fields note-at-point)
+                  (anki-editor--export-fields (anki-editor-note-fields note-at-point)))
+            (setf (anki-editor-note-marker expected-note) (point-marker))
+            (should (equal expected-note note-at-point)))
         (anki-editor-test--teardown)))))
 
 
@@ -180,27 +184,34 @@ Simple note body
       (anki-editor-test--go-to-headline "\"Front\" property field")
       (anki-editor-test--setup)
       (unwind-protect
-          (should (equal
-                   (anki-editor-note-at-point)
-                   #s(anki-editor-note nil "Basic" "Tests"
-                                       (("Back" . "<p>\nShould be included\n</p>\n")
-                                        ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
-                                       nil nil nil)))
-        (anki-editor-test--teardown)))))
+          (let ((expected-note
+                 #s(anki-editor-note nil "Basic" "Tests"
+                                     (("Back" . "<p>\nShould be included\n</p>\n")
+                                      ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                                     nil nil nil))
+                (note-at-point (anki-editor-note-at-point)))
+            (setf (anki-editor-note-fields note-at-point)
+                  (anki-editor--export-fields (anki-editor-note-fields note-at-point)))
+            (setf (anki-editor-note-marker expected-note) (point-marker))
+            (should (equal note-at-point expected-note))
+            (anki-editor-test--teardown)))))
 
-(ert-deftest test--note-at-point-for-note-with-property-field-should-override-subheading-field ()
-  "Test `anki-editor--note-at-point' should override subheading field."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/property-fields.org")
-      (anki-editor-test--go-to-headline "\"Front\" property field with \"Front\" subheading")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (should (equal
-                   (anki-editor-note-at-point)
-                   #s(anki-editor-note nil "Basic" "Tests"
-                                       (("Back" . "<p>\nShould be included\n</p>\n")
-                                        ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
-                                       nil nil nil)))
+  (ert-deftest test--note-at-point-for-note-with-property-field-should-override-subheading-field ()
+    "Test `anki-editor--note-at-point' should override subheading field."
+    (save-window-excursion
+      (with-current-buffer (anki-editor-test--test-org-buffer "test-files/property-fields.org")
+        (anki-editor-test--go-to-headline "\"Front\" property field with \"Front\" subheading")
+        (anki-editor-test--setup)
+        (unwind-protect
+            (let ((expected-note #s(anki-editor-note nil "Basic" "Tests"
+                                                     (("Back" . "<p>\nShould be included\n</p>\n")
+                                                      ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                                                     nil nil nil))
+                  (note-at-point (anki-editor-note-at-point)))
+              (setf (anki-editor-note-fields note-at-point)
+                    (anki-editor--export-fields (anki-editor-note-fields note-at-point)))
+              (setf (anki-editor-note-marker expected-note) (point-marker))
+              (should (equal note-at-point expected-note))))
         (anki-editor-test--teardown)))))
 
 
@@ -267,7 +278,12 @@ Simple note body
                            (expected-note nil))
                        (setq headline (org-entry-get (point) "ITEM"))
                        (setq note-at-point (anki-editor-note-at-point))
+                       (setf (anki-editor-note-fields note-at-point)
+                             (anki-editor--export-fields
+                              (anki-editor-note-fields note-at-point)))
                        (setq expected-note (cdr (assoc headline test-items-alist)))
+                       (setf (anki-editor-note-marker expected-note)
+                             (point-marker))
                        (should (equal note-at-point expected-note)))))))
           (anki-editor-test--teardown))))))
 
