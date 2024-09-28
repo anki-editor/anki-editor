@@ -313,6 +313,7 @@ Simple note body
   "Test `anki-editor--map-fields' should not swap heading and content before subheadings."
   (save-window-excursion
     (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
+      (anki-editor-test--setup)
       (unwind-protect
           (let* ((anki-editor-swap-two-fields nil)
                  (note (progn
@@ -321,7 +322,7 @@ Simple note body
                  (fields (anki-editor-note-fields note))
                  (first-field (nth 0 fields))
                  (second-field (nth 1 fields)))
-            (should (and (string= "Extra" (car first-field))
+            (should (and (string= "Back Extra" (car first-field))
                          (string-match "This is the {{c1::content}}." (cdr first-field))))
             (should (and (string= "Text" (car second-field))
                          (string-match "Text subheading omitted" (cdr second-field)))))
