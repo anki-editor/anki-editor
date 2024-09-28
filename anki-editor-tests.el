@@ -92,7 +92,6 @@ You can restore the original values by calling
            do (set variable value))
   (setq anki-editor-test--saved-variable-values nil))
 
-
 (defun anki-editor-test--setup ()
   "Setup testing."
   (anki-editor-test--patch-variables
@@ -111,9 +110,32 @@ You can restore the original values by calling
   (anki-editor-test--restore-variables)
   (advice-remove 'org-export-get-reference #'anki-editor-test--org-export-get-reference))
 
+(defun anki-editor-test--go-to-headline (title)
+  "Go to headline with TITLE."
+  (goto-char (point-min))
+  (re-search-forward (concat "* " title)))
+
+(defun anki-editor-test--test-org-buffer (name)
+  "Return test org buffer with NAME."
+  (find-file-noselect (expand-file-name name (file-name-directory (symbol-file 'anki-editor-test--go-to-headline)))))
+
+(cl-defmacro anki-editor-deftest (name () &key doc in test)
+  "Define NAME as an `anki-editor' specific `ert' test.
+This sets up the test server, runs the test, and then tears everything
+down again.  The DOC key is an (optional) doc string, IN is the file
+that the test should run in (containing the notes), and TEST is the
+actual body of the test."
+  (declare (doc-string 3) (indent 2))
+  `(ert-deftest ,name ()
+     ,doc
+     (save-window-excursion
+       (with-current-buffer (anki-editor-test--test-org-buffer ,in)
+         (anki-editor-test--setup)
+         (unwind-protect ,test
+           (anki-editor-test--teardown))))))
+
 (ert-deftest test--concat-fields-should-concatenate-fields-into-string ()
   "Test `anki-editor--concat-fields' should concatenate fields into string."
-
   (should (equal (anki-editor--concat-fields '("Front" "Back")
                                              '(("Front" . "Front content")
                                                ("Back" . "Back content"))
@@ -130,7 +152,6 @@ Back content
 
 (ert-deftest test--concat-fields-when-field-name-missing-in-field-alist-should-ignore-it ()
   "Test `anki-editor--concat-fields' should ignore field name missing in field-alist."
-
   (let ((concat-out (anki-editor--concat-fields '("Front" "Back")
                                                 '(("Front" . "Front content")) 0)))
     (should (stringp concat-out))
@@ -141,71 +162,51 @@ Front content
 
 "))))
 
-
-(defun anki-editor-test--go-to-headline (title)
-  "Go to headline with TITLE."
-  (goto-char (point-min))
-  (re-search-forward (concat "* " title)))
-
-(defun anki-editor-test--test-org-buffer (name)
-  "Return test org buffer with NAME."
-  (find-file-noselect (expand-file-name name (file-name-directory (symbol-file 'anki-editor-test--go-to-headline)))))
-
-
-(ert-deftest test--note-at-point-should-return-note-at-point ()
-  "Test `anki-editor--note-at-point' should return note at point."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/test.org")
-      (anki-editor-test--go-to-headline "Simple note")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (should (equal
-                   (anki-editor-note-at-point)
-                   #s(anki-editor-note nil "Basic" "Tests"
-                                       (("Back" . "<p>
+(anki-editor-deftest test--note-at-point-should-return-note-at-point ()
+  :doc "Test `anki-editor--note-at-point' should return note at point."
+  :in "test-files/test.org"
+  :test
+  (progn (anki-editor-test--go-to-headline "Simple note")
+         (should (equal
+                  (anki-editor-note-at-point)
+                  #s(anki-editor-note nil "Basic" "Tests"
+                                      (("Back" . "<p>
 Lorem
 </p>
 ")
-                                        ("Front" . "<p>
+                                       ("Front" . "<p>
 Simple note body
 </p>
-")) nil)))
-        (anki-editor-test--teardown)))))
+")) nil)))))
 
+(anki-editor-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
+  :doc "Test `anki-editor--note-at-point' should render property field."
+  :in "test-files/property-fields.org"
+  :test
+  (progn (anki-editor-test--go-to-headline "\"Front\" property field")
+         (should (equal
+                  (anki-editor-note-at-point)
+                  #s(anki-editor-note nil "Basic" "Tests"
+                                      (("Back" . "<p>\nShould be included\n</p>\n")
+                                       ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                                      nil)))))
 
-(ert-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
-  "Test `anki-editor--note-at-point' should render property field."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/property-fields.org")
-      (anki-editor-test--go-to-headline "\"Front\" property field")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (should (equal
-                   (anki-editor-note-at-point)
-                   #s(anki-editor-note nil "Basic" "Tests"
-                                       (("Back" . "<p>\nShould be included\n</p>\n")
-                                        ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
-                                       nil)))
-        (anki-editor-test--teardown)))))
+(anki-editor-deftest test--note-at-point-for-note-with-property-field-should-override-subheading-field ()
+  :doc "Test `anki-editor--note-at-point' should override subheading field."
+  :in "test-files/property-fields.org"
+  :test
+  (progn (anki-editor-test--go-to-headline "\"Front\" property field with \"Front\" subheading")
+         (should (equal
+                  (anki-editor-note-at-point)
+                  #s(anki-editor-note nil "Basic" "Tests"
+                                      (("Back" . "<p>\nShould be included\n</p>\n")
+                                       ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                                      nil)))))
 
-(ert-deftest test--note-at-point-for-note-with-property-field-should-override-subheading-field ()
-  "Test `anki-editor--note-at-point' should override subheading field."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/property-fields.org")
-      (anki-editor-test--go-to-headline "\"Front\" property field with \"Front\" subheading")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (should (equal
-                   (anki-editor-note-at-point)
-                   #s(anki-editor-note nil "Basic" "Tests"
-                                       (("Back" . "<p>\nShould be included\n</p>\n")
-                                        ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
-                                       nil)))
-        (anki-editor-test--teardown)))))
-
-
-(ert-deftest test--note-at-point-for-examples-should-produce-correct-output ()
-  "Test `anki-editor--note-at-point' should produce correct output for examples."
+(anki-editor-deftest test--note-at-point-for-examples-should-produce-correct-output ()
+  :doc "Test `anki-editor--note-at-point' should produce correct output for examples."
+  :in "examples.org"
+  :test
   (let ((test-items-alist
          '(("Deck in file" . #s(anki-editor-note
                                 nil "Cloze" "Default"
@@ -253,99 +254,82 @@ Simple note body
                                 ("Front" . "<p>\nHow to calculate the dot product of two vectors:\n</p>\n\n[latex]<br>\\begin{equation*}<br>\\alpha = \\{a_1, a_2, a_3\\}, \\beta = \\{b_1, b_2, b_3\\}<br>\\end{equation*}<br>[/latex]\n"))
                                nil))
            )))
-    (save-window-excursion
-      (with-current-buffer (anki-editor-test--test-org-buffer "examples.org")
-        (anki-editor-test--setup)
-        (unwind-protect
-            (org-map-entries
-             (lambda ()
-               ;; Only entries which have ANKI_NOTE_TYPE
-               (when (org-entry-get (point) "ANKI_NOTE_TYPE")
-                 (unwind-protect
-                     (let ((note-at-point nil)
-                           (headline nil)
-                           (expected-note nil))
-                       (setq headline (org-entry-get (point) "ITEM"))
-                       (setq note-at-point (anki-editor-note-at-point))
-                       (setq expected-note (cdr (assoc headline test-items-alist)))
-                       (should (equal note-at-point expected-note)))))))
-          (anki-editor-test--teardown))))))
+    (org-map-entries
+     (lambda ()
+       ;; Only entries which have ANKI_NOTE_TYPE
+       (when (org-entry-get (point) "ANKI_NOTE_TYPE")
+         (unwind-protect
+             (let ((note-at-point nil)
+                   (headline nil)
+                   (expected-note nil))
+               (setq headline (org-entry-get (point) "ITEM"))
+               (setq note-at-point (anki-editor-note-at-point))
+               (setq expected-note (cdr (assoc headline test-items-alist)))
+               (should (equal note-at-point expected-note)))))))))
 
-(ert-deftest test--anki-editor--map-fields-cloze-default ()
-  "Test `anki-editor--map-fields' should process default note."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (let* ((anki-editor-swap-two-fields nil)
-                 (note (progn
-                         (anki-editor-test--go-to-headline "Default note")
-                         (anki-editor-note-at-point)))
-                 (fields (anki-editor-note-fields note))
-                 (first-field (nth 0 fields))
-                 (second-field (nth 1 fields)))
-            (should (and (string= "Back Extra" (car first-field))
-                         (string-match "Default note" (cdr first-field))))
-            (should (and (string= "Text" (car second-field))
-                         (string-match "This is the {{c1::content}}." (cdr second-field)))))
-        (anki-editor-test--teardown)))))
+(anki-editor-deftest test--anki-editor--map-fields-cloze-default ()
+  :doc "Test `anki-editor--map-fields' should process default note."
+  :in "test-files/cloze.org"
+  :test
+  (let* ((anki-editor-swap-two-fields nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Default note")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Default note" (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
 
-(ert-deftest test--anki-editor--map-fields-cloze-default-with-extra ()
-  "Test `anki-editor--map-fields' should process default note with extra."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (let* ((anki-editor-swap-two-fields nil)
-                 (note (progn
-                         (anki-editor-test--go-to-headline "Default note with Extra")
-                         (anki-editor-note-at-point)))
-                 (fields (anki-editor-note-fields note))
-                 (first-field (nth 0 fields))
-                 (second-field (nth 1 fields)))
-            (should (and (string= "Back Extra" (car first-field))
-                         (string-match "This is the extra content." (cdr first-field))))
-            (should (and (string= "Text" (car second-field))
-                         (string-match "This is the {{c1::content}}." (cdr second-field)))))
-        (anki-editor-test--teardown)))))
+(anki-editor-deftest test--anki-editor--map-fields-cloze-default-with-extra ()
+  :doc "Test `anki-editor--map-fields' should process default note with extra."
+  :in "test-files/cloze.org"
+  :test
+  (let* ((anki-editor-swap-two-fields nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Default note with Extra")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "This is the extra content." (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
 
-(ert-deftest test--anki-editor--map-fields-cloze-should-not-swap-heading-and-content-before-subheadings ()
-  "Test `anki-editor--map-fields' should not swap heading and content before subheadings."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (let* ((anki-editor-swap-two-fields nil)
-                 (note (progn
-                         (anki-editor-test--go-to-headline "Text subheading omitted")
-                         (anki-editor-note-at-point)))
-                 (fields (anki-editor-note-fields note))
-                 (first-field (nth 0 fields))
-                 (second-field (nth 1 fields)))
-            (should (and (string= "Back Extra" (car first-field))
-                         (string-match "This is the {{c1::content}}." (cdr first-field))))
-            (should (and (string= "Text" (car second-field))
-                         (string-match "Text subheading omitted" (cdr second-field)))))
-        (anki-editor-test--teardown)))))
+(anki-editor-deftest test--anki-editor--map-fields-cloze-should-not-swap-heading-and-content-before-subheadings ()
+  :doc "Test `anki-editor--map-fields' should not swap heading and content before subheadings."
+  :in "test-files/cloze.org"
+  :test
+  (let* ((anki-editor-swap-two-fields nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Text subheading omitted")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "This is the {{c1::content}}." (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "Text subheading omitted" (cdr second-field))))))
 
-(ert-deftest test--anki-editor--map-fields-cloze-should-swap-heading-and-content-before-subheadings ()
-  "Test `anki-editor--map-fields' should swap heading and content before subheadings."
-  (save-window-excursion
-    (with-current-buffer (anki-editor-test--test-org-buffer "test-files/cloze.org")
-      (anki-editor-test--setup)
-      (unwind-protect
-          (let* ((anki-editor-swap-two-fields '("Cloze"))
-                 (note (progn
-                         (anki-editor-test--go-to-headline "Text subheading omitted")
-                         (anki-editor-note-at-point)))
-                 (fields (anki-editor-note-fields note))
-                 (first-field (nth 0 fields))
-                 (second-field (nth 1 fields)))
-            (should (and (string= "Back Extra" (car first-field))
-                         (string-match "Text subheading omitted" (cdr first-field))))
-            (should (and (string= "Text" (car second-field))
-                         (string-match "This is the {{c1::content}}." (cdr second-field)))))
-        (anki-editor-test--teardown)))))
+(anki-editor-deftest test--anki-editor--map-fields-cloze-should-swap-heading-and-content-before-subheadings ()
+  :doc "Test `anki-editor--map-fields' should swap heading and content before subheadings."
+  :in "test-files/cloze.org"
+  :test
+  (let* ((anki-editor-swap-two-fields '("Cloze"))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Text subheading omitted")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Text subheading omitted" (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
