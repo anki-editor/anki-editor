@@ -173,6 +173,12 @@ use Anki's builtin LaTeX support."
 are missing."
   :type '(repeat string))
 
+(defcustom anki-editor-field-alias nil
+  "Alist mapping note type to a list of cons.
+Each cons cell maps a field name alias to the corresponding to
+model field name."
+  :type '(repeat cons))
+
 ;;; AnkiConnect
 
 (defconst anki-editor-api-version 6)
@@ -942,10 +948,21 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
    (let* ((model-fields (alist-get
                          note-type anki-editor--model-fields
                          nil nil #'string=))
+          (field-alias (alist-get note-type anki-editor-field-alias
+                                  nil nil #'string=))
           (property-fields (anki-editor--property-fields model-fields))
-          (named-fields (seq-uniq (append property-fields subheading-fields)
-                                  (lambda (left right)
-                                    (string= (car left) (car right)))))
+          (named-fields (seq-uniq
+                         (append property-fields
+                                 (mapcar
+                                  (lambda (field)
+                                    (let ((aliased (alist-get (car field) field-alias
+                                                              nil nil #'string=)))
+                                      (cond
+                                       (aliased `(,aliased . ,(cdr field)))
+                                       (t field))))
+                                  subheading-fields))
+                         (lambda (left right)
+                           (string= (car left) (car right)))))
           (fields-matching (cl-intersection
                             model-fields (mapcar #'car named-fields)
                             :test #'string=))

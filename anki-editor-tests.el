@@ -331,5 +331,55 @@ Simple note body
     (should (and (string= "Text" (car second-field))
                  (string-match "This is the {{c1::content}}." (cdr second-field))))))
 
+(anki-editor-deftest test--anki-editor-field-alias-basic-with-alias ()
+  :doc "Test `anki-editor--map-fields' should use field alias when mapping exists."
+  :in "test-files/aliased-fields.org"
+  :test
+  (let* ((anki-editor-field-alias '(("Basic" . (("Answer" . "Back")))))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Exercise 1.1")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "2000" (cdr first-field))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "The last year of the 20th century was" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor-field-alias-cloze-with-back-extra ()
+  :doc "Test `anki-editor--map-fields' should handle back extra by default."
+  :in "test-files/aliased-fields.org"
+  :test
+  (let* ((anki-editor-swap-two-fields '("Cloze"))
+         (anki-editor-field-alias nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze with Back Extra")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "This should map to Back Extra." (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor-field-alias-cloze-with-alias ()
+  :doc "Test `anki-editor--map-fields' should use field alias when mapping exists."
+  :in "test-files/aliased-fields.org"
+  :test
+  (let* ((anki-editor-swap-two-fields '("Cloze"))
+         (anki-editor-field-alias '(("Cloze" . (("Note" . "Back Extra")))))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze with Note as Back Extra")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "This should map to Back Extra." (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here

@@ -1,0 +1,35 @@
+* Exercise 1.1
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+The last year of the 20th century was …
+
+** Answer
+
+2000
+
+* Cloze with Back Extra
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+
+This is the {{c1::content}}.
+
+** Back Extra
+
+This should map to Back Extra.
+
+* Cloze with Note as Back Extra
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+
+This is the {{c1::content}}.
+
+** Note
+
+This should map to Back Extra.
