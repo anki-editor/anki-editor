@@ -1,0 +1,29 @@
+* Default note
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+** Text
+
+This is the {{c1::content}}.
+
+* Default note with Extra
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+** Text
+
+This is the {{c1::content}}.
+
+** Extra
+
+This is the extra content.
+
+* Text subheading omitted
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+
+This is the {{c1::content}}.

@@ -105,7 +105,7 @@ Useful for special tags like `marked' and `leech'."
 (defcustom anki-editor-latex-style 'builtin
   "The style of latex to translate into."
   :type '(radio (const :tag "Built-in" builtin)
-                (const :tag "MathJax" mathjax)))
+          (const :tag "MathJax" mathjax)))
 
 (defcustom anki-editor-include-default-style t
   "Whether to include the default style with `anki-editor-copy-styles'.
@@ -169,7 +169,13 @@ will be exported as
 This option only has an effect if `anki-editor-latex-style' is set to
 use Anki's builtin LaTeX support."
   :type '(choice (string :tag "Use this string for the class' name.")
-                 (const :tag "Do not create an extra div for display math." nil)))
+          (const :tag "Do not create an extra div for display math." nil)))
+
+(defcustom anki-editor-swap-two-fields nil
+  "For note types in this list, swap fields
+`content-before-subheading' and `heading' when both model fields
+are missing."
+  :type '(repeat string))
 
 ;;; AnkiConnect
 
@@ -1168,7 +1174,8 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                             collect (cons f (alist-get
                                              f named-fields
                                              nil nil #'string=))))
-           (heading-format anki-editor-prepend-heading-format))
+           (heading-format anki-editor-prepend-heading-format)
+           (field-swap (if (member note-type anki-editor-swap-two-fields) 1 0)))
       (cond ((equal 0 (length fields-missing))
              (when (< 0 (length fields-extra))
                (user-error "Failed to map all named fields")))
@@ -1209,28 +1216,28 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
             ((equal 2 (length fields-missing))
              (if (equal 0 (length fields-extra))
                  (progn
-                   (push (cons (nth 1 fields-missing)
+                   (push (cons (nth (- 1 field-swap) fields-missing)
                                content-before-subheading)
                          fields)
-                   (push (cons (car fields-missing)
+                   (push (cons (nth (- field-swap 0) fields-missing)
                                heading)
                          fields))
                (if (equal "" (string-trim content-before-subheading))
                    (progn
-                     (push (cons (nth 1 fields-missing)
+                     (push (cons (nth (- 1 field-swap) fields-missing)
                                  (anki-editor--concat-fields
                                   fields-extra subheading-fields level))
                            fields)
-                     (push (cons (car fields-missing)
+                     (push (cons (nth (- field-swap 0) fields-missing)
                                  heading)
                            fields))
                  (progn
-                   (push (cons (nth 1 fields-missing)
+                   (push (cons (nth (- 1 field-swap) fields-missing)
                                (concat content-before-subheading
                                        (anki-editor--concat-fields
                                         fields-extra subheading-fields level)))
                          fields)
-                   (push (cons (car fields-missing)
+                   (push (cons (nth (- field-swap 0) fields-missing)
                                heading)
                          fields)))))
             ((< 2 (length fields-missing))
