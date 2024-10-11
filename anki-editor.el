@@ -174,9 +174,14 @@ are missing."
   :type '(repeat string))
 
 (defcustom anki-editor-field-alias nil
-  "Alist mapping note type to a list of cons.
-Each cons cell maps a field name alias to the corresponding to
-model field name."
+  "Alist of field name mapping for each note type.
+For example, setting the value
+
+  '((\"Basic\" . ((\"Solution\" . \"Back\"))))
+
+to this custom variable, registers the text 'Solution' to be an
+alias of 'Back' when used as a subheading of a Basic Anki note
+structure."
   :type '(repeat cons))
 
 ;;; AnkiConnect
