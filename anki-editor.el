@@ -530,6 +530,7 @@ The implementation is borrowed and simplified from ox-html."
 (defconst anki-editor-prop-tags-plus (concat anki-editor-prop-tags "+"))
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
 (defconst anki-editor-prop-default-note-type "ANKI_DEFAULT_NOTE_TYPE")
+(defconst anki-editor-prop-swap-two-fields "ANKI_SWAP_TWO_FIELDS")
 (defconst anki-editor-org-tag-regexp "^\\([[:alnum:]_@#%]+\\)+$")
 
 (cl-defstruct anki-editor-note
@@ -807,12 +808,19 @@ and else from variable `anki-editor-prepend-heading'."
          (content-before-subheading
           (anki-editor--note-contents-before-subheading))
          (subheading-fields (anki-editor--build-fields))
+         (field-swap
+          (if (member note-type
+                      (or (anki-editor--entry-get-multivalued-property-with-inheritance
+                           nil anki-editor-prop-swap-two-fields)
+                          anki-editor-swap-two-fields))
+              1 0))
          (fields (anki-editor--map-fields heading
                                           content-before-subheading
                                           subheading-fields
                                           note-type
                                           level
-                                          prepend-heading))
+                                          prepend-heading
+                                          field-swap))
          (exported-fields (mapcar (lambda (x)
                                     (cons
                                      (car x)
@@ -946,7 +954,8 @@ Leading whitespace, drawers, and planning content is skipped."
                                 subheading-fields
                                 note-type
                                 level
-                                prepend-heading)
+                                prepend-heading
+                                field-swap)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
@@ -984,8 +993,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                            collect (cons f (alist-get
                                             f named-fields
                                             nil nil #'string=))))
-          (heading-format anki-editor-prepend-heading-format)
-          (field-swap (if (member note-type anki-editor-swap-two-fields) 1 0)))
+          (heading-format anki-editor-prepend-heading-format))
      (cond ((equal 0 (length fields-missing))
             (when (< 0 (length fields-extra))
               (user-error "Failed to map all named fields")))
