@@ -381,5 +381,107 @@ Simple note body
     (should (and (string= "Text" (car second-field))
                  (string-match "This is the {{c1::content}}." (cdr second-field))))))
 
+(anki-editor-deftest test--anki-editor--build-fields-should-not-use-exclude-tags-with-nested-subheadings ()
+  :doc "Test `anki-editor--build-fields' should not use exclude tags with nested subheadings."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "This is back" (cdr first-field))
+                 (string-match "This will be included in the content if" (cdr first-field))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "This is front" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-use-exclude-tags-with-nested-subheadings ()
+  :doc "Test `anki-editor--build-fields' should use exclude tags with nested subheadings."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags '("noexport"))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "This is back" (cdr first-field))
+                 (not (string-match "This will be included in the content if" (cdr first-field)))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "This is front" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-not-use-exclude-tags-in-short-form-basic ()
+  :doc "Test `anki-editor--build-fields' should not use exclude tags in short form basic."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (string-match "This will be included in the content if" (cdr first-field))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "Basic Anki note in short form" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-use-exclude-tags-in-short-form-basic ()
+  :doc "Test `anki-editor--build-fields' should use exclude tags in short form basic."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags '("noexport"))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (not (string-match "This will be included in the content if" (cdr first-field)))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "Basic Anki note in short form" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-not-use-exclude-tags-in-short-form-cloze ()
+  :doc "Test `anki-editor--build-fields' should not use exclude tags in short form Cloze."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (string-match "This will be included in the content if" (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "Cloze Anki note in short form" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-use-exclude-tags-in-short-form-cloze ()
+  :doc "Test `anki-editor--build-fields' should use exclude tags in short form Cloze."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags '("noexport"))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (not (string-match "This will be included in the content if" (cdr first-field)))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "Cloze Anki note in short form" (cdr second-field))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here

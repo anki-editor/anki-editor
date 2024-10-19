@@ -1,0 +1,40 @@
+* Basic Anki note
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+** Front
+
+This is front.
+
+** Back
+
+This is back.
+
+*** Note :noexport:
+
+This will be included in the content if ~org-export-exclude-tags~ is not set.
+
+* Basic Anki note in short form
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+Content.
+
+** Note :noexport:
+
+This will be included in the content if ~org-export-exclude-tags~ is not set.
+
+* Cloze Anki note in short form
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:END:
+
+Content.
+
+** Note :noexport:
+
+This will be included in the content if ~org-export-exclude-tags~ is not set.

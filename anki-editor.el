@@ -890,6 +890,9 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                                  ;; scope is `tree'
                                  (min (point-max) end)))
                            "")
+             when (not (cl-intersection (org-export-get-tags element nil nil t)
+                                        org-export-exclude-tags
+                                        :test #'string-equal-ignore-case))
              ;; for content = (anki-editor--export-string raw format)
              ;; collect (cons heading content)
              collect (cons heading raw)
