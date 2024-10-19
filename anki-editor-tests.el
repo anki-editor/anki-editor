@@ -483,5 +483,21 @@ Simple note body
     (should (and (string= "Text" (car second-field))
                  (string-match "Cloze Anki note in short form" (cdr second-field))))))
 
+(anki-editor-deftest test--anki-editor--map-fields-cloze-should-swap-heading-and-content-before-subheadings-with-property ()
+  :doc "Test `anki-editor--map-fields' should swap heading and content before subheadings with property."
+  :in "test-files/cloze.org"
+  :test
+  (let* ((anki-editor-swap-two-fields nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Note with swap two fields as property")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Note with swap two fields as property" (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
