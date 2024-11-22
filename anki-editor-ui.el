@@ -65,7 +65,7 @@
     ("s" " sync AnkiWeb         " anki-editor-sync-collection :level 2)]
    [""
     ("G" " gui add card" anki-editor-gui-add-cards :level 3)
-    ("a" " api check" anki-editor-api-check 3)]]
+    ("a" " api check" anki-editor-api-check :level 3)]]
   [["Misc"
     ("h" " subtree to html      " anki-editor-export-subtree-to-html
      :level 4)
