@@ -824,8 +824,9 @@ and else from variable `anki-editor-prepend-heading'."
          (exported-fields (mapcar (lambda (x)
                                     (cons
                                      (car x)
-                                     (anki-editor--export-string (cdr x)
-                                                                 format)))
+                                     (string-trim 
+                                      (anki-editor--export-string (cdr x)
+                                                                  format))))
                                   fields)))
     (unless deck (user-error "Missing deck"))
     (unless note-type (user-error "Missing note type"))
