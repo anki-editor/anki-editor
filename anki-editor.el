@@ -1385,7 +1385,15 @@ Otherwise this command is like `anki-editor-set-note-type'."
 
 (defun anki-editor-cloze (begin end arg hint)
   "Cloze region from BEGIN to END with number ARG."
-  (let ((region (buffer-substring begin end)))
+  (let* ((region (buffer-substring begin end))
+         ;; If the start of the region contains Org markup, then there needs
+         ;; to be some space between the cloze start and the start of the
+         ;; region. E.g., otherwise {{c1::/foo/}} would result in Org not
+         ;; recognising it as italics (and it would not be exported as such).
+         (region (if (cl-some (lambda (em) (string-prefix-p em region))
+                              (mapcar #'car org-emphasis-alist))
+                     (concat " " region)
+                   region)))
     (save-excursion
       (delete-region begin end)
       (insert (with-output-to-string
