@@ -5,7 +5,7 @@
 ;; Author: Lei Tan
 ;; Version: 0.3.3
 ;; URL: https://github.com/anki-editor/anki-editor
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((emacs "29.1"))
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
