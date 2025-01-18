@@ -177,12 +177,12 @@ are missing."
   "Alist of field name mapping for each note type.
 For example, setting the value
 
-  '((\"Basic\" . ((\"Solution\" . \"Back\"))))
+  \\='((\"Basic\" . ((\"Solution\" . \"Back\"))))
 
-to this custom variable, registers the text 'Solution' to be an
-alias of 'Back' when used as a subheading of a Basic Anki note
+to this custom variable, registers the text `Solution' to be an
+alias of `Back' when used as a subheading of a Basic Anki note
 structure."
-  :type '(repeat cons))
+  :type '(repeat (cons string (repeat (cons string string)))))
 
 ;;; AnkiConnect
 
@@ -276,8 +276,8 @@ of these calls in the same order."
                       (vconcat
                        --anki-editor-var-multi-actions--))))
      (cl-loop for result in --anki-editor-var-multi-results--
-              do (when-let ((pred (listp result))
-                            (err (alist-get 'error result)))
+              do (when-let* ((pred (listp result))
+                             (err (alist-get 'error result)))
                    (error err))
               collect result)))
 
@@ -824,7 +824,7 @@ and else from variable `anki-editor-prepend-heading'."
          (exported-fields (mapcar (lambda (x)
                                     (cons
                                      (car x)
-                                     (string-trim 
+                                     (string-trim
                                       (anki-editor--export-string (cdr x)
                                                                   format))))
                                   fields)))
@@ -1491,8 +1491,8 @@ note or deck."
                                (progn
                                  (cl-incf end (length anki-editor--style-end))
                                  ;; skip whitespaces
-                                 (when-let ((newend (string-match
-                                                     "[[:graph:]]" css end)))
+                                 (when-let* ((newend (string-match
+                                                      "[[:graph:]]" css end)))
                                    (setq end newend))
                                  (concat
                                   (substring css 0 start)
@@ -1522,7 +1522,7 @@ note or deck."
            do
            (cl-incf end (length anki-editor--style-end))
            ;; also remove whitespaces
-           (when-let ((newend (string-match "[[:graph:]]" css end)))
+           (when-let* ((newend (string-match "[[:graph:]]" css end)))
              (setq end newend))
            (message "Resetting styles for \"%s\"..." model)
            (anki-editor-api-call-result
