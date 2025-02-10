@@ -134,6 +134,24 @@ actual body of the test."
          (unwind-protect ,test
            (anki-editor-test--teardown))))))
 
+(anki-editor-deftest test--export-string-with-raw ()
+  :doc "Test `anki-editor--export-string` with `# raw` prefix."
+  :in "test-files/test.org"
+  :test
+  (progn
+    (should (equal (anki-editor--export-string "# raw content" t) "content"))
+    (should (equal (anki-editor--export-string "# raw  content" t) "content"))
+    (should (equal (anki-editor--export-string "# raw\ncontent" t) "content"))
+    (should (equal (anki-editor--export-string "# raw" t) ""))))
+
+(anki-editor-deftest test--export-string-without-raw ()
+  :doc "Test `anki-editor--export-string` without `# raw` prefix."
+  :in "test-files/test.org"
+  :test
+  (progn
+    (should (equal (anki-editor--export-string "content" t) "<p>\ncontent</p>\n"))
+    (should (equal (anki-editor--export-string "" t) ""))))
+
 (ert-deftest test--concat-fields-should-concatenate-fields-into-string ()
   "Test `anki-editor--concat-fields' should concatenate fields into string."
   (should (equal (anki-editor--concat-fields '("Front" "Back")
