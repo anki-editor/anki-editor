@@ -503,19 +503,22 @@ The implementation is borrowed and simplified from ox-html."
    (funcall oldfun link desc info)))
 
 (defun anki-editor--export-string (src fmt)
-  "Export string SRC and format it if FMT."
-  (if fmt
-      (or (org-export-string-as
-           src
-           anki-editor--ox-anki-html-backend
-           t
-           anki-editor--ox-export-ext-plist)
-          ;; 8.2.10 version of
-          ;; `org-export-filter-apply-functions'
-          ;; returns nil for an input of empty string,
-          ;; which will cause AnkiConnect to fail
-          "")
-    src))
+  "Export string SRC and format it if FMT.
+If the string starts with '# raw', return the string as is."
+  (if (and (stringp src) (string-prefix-p "# raw" src))
+      (replace-regexp-in-string "^# raw[ \t\n]*" "" src)
+    (if fmt
+        (or (org-export-string-as
+             src
+             anki-editor--ox-anki-html-backend
+             t
+             anki-editor--ox-export-ext-plist)
+            ;; 8.2.10 version of
+            ;; `org-export-filter-apply-functions'
+            ;; returns nil for an input of empty string,
+            ;; which will cause AnkiConnect to fail
+            "")
+      src)))
 
 ;;; Core primitives
 
