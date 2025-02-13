@@ -75,7 +75,7 @@ If you use Doom Emacs, add the followings to ~packages.el~ and ~config.el~ respe
 ** Usage
 
 *** The Layout of Notes
-
+**** Note and Fields General Information
    The power of this mode comes from the builtin HTML export backend
    provided by Org, which enables you to use almost all the Org
    constructs for writing Anki notes: lists, code blocks, tables,
@@ -156,6 +156,29 @@ If you use Doom Emacs, add the followings to ~packages.el~ and ~config.el~ respe
 [fn:1] It should be noted that Org only allows letters, numbers, =_=
 and ~@~ in a tag but Anki allows more, so you may have to edit you
 Anki tags before they can be used in Org without any surprise.
+**** Controlling HTML Formatting
+By default, anki-editor converts Org syntax to HTML when exporting to Anki.
+The =:ANKI_FORMAT: nil= property can be used at the *note* level to disable this conversion for the entire note.
+
+If you want to use both raw text fields and HTML-converted fields within a single note, you can now use the =# raw= prefix *within a field* to indicate that the field's content should be treated as raw text, bypassing HTML conversion.
+Any spaces, tabs, or newlines immediately following =# raw= are ignored.
+
+#+BEGIN_SRC org
+,* Example Note with Mixed Formatting
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+,** Front
+This field will be converted to HTML.
+- This is a list.
+- It will be rendered as an HTML list.
+
+,** Back
+# raw
+This field will be treated as RAW text.
+It will be sent to Anki exactly as written.
+#+END_SRC
 
 *** Commands
 To see the docs for the most recent commands use M-x describe-function (for more info see [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Name-Help.html][Emacs Manual - Help Commands]])
