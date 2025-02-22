@@ -792,13 +792,7 @@ Return :create, :update, or :skip as appropriate."
   "Enqueue an update-note action for NOTE."
   (anki-editor-api-enqueue-request
    'updateNote
-   (if-let (tags (anki-editor-note-tags note))
-       (list :note (anki-editor-api--note note)
-             ;; the empty list is treated as None when decoded
-             ;; on anki's side, which breaks the api, so convert
-             ;; to vector here just in case.
-             :tags (vconcat tags))
-     (list :note (anki-editor-api--note note)))
+   (list :note (anki-editor-api--note note))
    :success (lambda (_)
               (set-buffer (marker-buffer (anki-editor-note-marker note)))
               (goto-char (anki-editor-note-marker note))
