@@ -1,0 +1,361 @@
+:PROPERTIES:
+:ANKI_DECK:  Test
+:ANKI_DEFAULT_NOTE_TYPE: Basic
+:COLUMNS:    %50ITEM %ANKI_NOTE_TYPE %ANKI_NOTE_ID %ANKI_TAGS+
+:END:
+
+* README before testing
+
+To test this the following note types need to exist in your Anki desktop app:
+- A note type named ~Basic~ with two fields named ~Front~ and ~Back~, in this order.
+- A note type named ~field1-field2-field3~ with three fields named ~field1~, ~field2~, and ~field3~, in this order.
+
+The content of each field starts with the field name so that one can quickly see if it has been correctly mapped in Anki.
+
+
+* Basic note with subheadings
+  :PROPERTIES:
+  :ANKI_DECK: Test
+  :ANKI_NOTE_TYPE: Basic
+  :END:
+
+** Front
+
+*Front*
+/Basic note with subheadings/
+=Works=
+
+
+** Back
+
+*Back*
+
+
+*** Subheading
+
+Content of subheading
+
+
+**** Subsubheading
+
+Content of subsubheading
+
+
+* Basic note with Back subheading but no text before
+  :PROPERTIES:
+  :ANKI_DECK: Test
+  :ANKI_NOTE_TYPE: Basic
+  :END:
+
+** Front
+
+*Front*
+/Basic note with Back subheadings but no text before/
+=Works=
+
+
+** Back
+
+*** Subheading
+
+Content of subheading
+
+
+* *Front* of /Basic note with omitted Front and Back/
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+*Back*
+=Works=
+- The heading is mapped to the first missing field: Front.
+- The content is mapped to the second missing field: Back.
+
+
+* *Front* of /Basic note with omitted Front and Back, and subheading/
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+*Back*
+=Fails=
+- The subheading is omitted.
+
+
+** Subheading
+
+Content of subheading
+
+
+* Basic note with omitted Front, Back field heading, and text before
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+*Front*
+/Basic note with omitted Front, Back field heading, and text before/
+=Works=
+- The text before first heading is mapped to the front field.
+
+
+** Back
+
+*Back*
+
+
+* *Front* of /Basic note with omitted Front, Back field heading, and no text before/
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+** Back
+
+*Back*
+=Works=
+
+
+* Note type with three fields: field1-field2-field3
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: field1-field2-field3
+:END:
+
+** field1
+
+*field1*
+/Note type with three fields: field1-field2-field3/
+=Works=
+
+
+** field2
+
+*field2*
+
+
+** field3
+
+*field3*
+
+
+* field1-field2-field3 note, field2 omitted, text before first heading
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: field1-field2-field3
+:END:
+
+*field2*
+
+
+** field1
+
+*field1*
+/field1-field2-field3 note, field2 omitted, text before first heading/
+=Works=
+- The text before the first heading is mapped to the missing field.
+
+** field3
+
+*field3*
+
+
+* field1-field2-field3 note, field2 omitted, text before first heading, subheading in field1
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: field1-field2-field3
+:END:
+
+*field2*
+
+** field1
+
+*field1*
+/field1-field2-field3 note, field2 omitted, text before first heading, subheading in field1/
+=Works=
+
+
+*** Subheading
+
+Content of subheading
+
+**** Subsub
+
+** field3
+
+*field3*
+
+
+* *field2* of /field1-field2-field3, field2 omitted, no text before first heading/
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: field1-field2-field3
+:END:
+
+** field1
+
+*field1*
+=Works=
+
+
+** field3
+
+*field3*
+
+
+* *field1* of /field1-field2-field3 note, two omitted, text before first heading/
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: field1-field2-field3
+:END:
+
+*field2*
+=Works=
+- The heading is mapped to the first missing field.
+- Text before first heading is mapped to second missing field.
+
+
+** field3
+
+*field3*
+
+
+* *Front* of /Basic note with Mathjax line break/
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+*Back*
+=Works=
+
+\begin{align*}
+\forall \epsilon > 0, \exists \delta > 0, \forall y, \\
+\lvert x - y \rvert < \delta \implies \lvert f(x) - f(y) \rvert < \epsilon.
+\end{align*}
+
+
+* *Front* of /Basic (and reversed card)/
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic (and reversed card)
+:ANKI_DECK: Test
+:END:
+
+*Back*
+=Works=
+
+* Basic note with empty Back
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+** Front
+
+*Front*
+/Basic note with empty Back/
+=Works=
+
+** Back
+
+* *Front* of /Empty Basic note/
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+* BASIC note with heading prepended and extra heading
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: Basic
+:ANKI_PREPEND_HEADING: t
+:END:
+
+Some text here is required.
+
+** Back
+
+Answer here.
+
+
+** Extra heading
+
+Text of extra heading.
+
+
+* Cloze with headings
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:END:
+
+** Text
+
+The capital of Norway is {{c1::Oslo.}}
+
+
+** Back Extra
+
+* Basic note with heading prepended
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_PREPEND_HEADING: t
+:END:
+
+Content
+
+** Back
+
+Back
+
+
+* Tags property test
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: Basic
+:ANKI_TAGS+: ccc
+:END:
+
+note with tag ccc
+
+
+* Field from property
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_FIELD_FRONT: Front field from property
+:END:
+
+Back field
+
+=Doesn't work: With anki-editor-prepend-heading non-nil, the heading is prepended since property fields are not counted when determining whether to do so or not.=
+
+
+* Two fields from property
+:PROPERTIES:
+:ANKI_NOTE_TYPE: field1-field2-field3
+:ANKI_FIELD_FIELD1: Field1 from property
+:ANKI_FIELD_FIELD3: Field3 from property
+:END:
+
+Field2 from contents
+=Works=
+
+
+* COMMENT Note with image link
+
+FIXME: This node is not rendering an image link.
+
+Image link: [[test-data/1x1.jpg][1x1.jpg]]
+
+* Last note with empty Back
+:PROPERTIES:
+:ANKI_DECK: Test
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+** Front
+
+*Front*
+/Last note with empty Back/
+=Works=
+
+
+** Back

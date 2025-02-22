@@ -517,5 +517,417 @@ Simple note body
     (should (and (string= "Text" (car second-field))
                  (string-match "This is the {{c1::content}}." (cdr second-field))))))
 
+(ert-deftest test--note-at-point-for-test-notes-org--should-produce-correct-output()
+  (let ((test-items-alist
+         '(("Basic note with subheadings" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+<b>Back</b>
+</p>
+<div id=\"outline-container-test\" class=\"outline-2\">
+<h2 id=\"test\"><span class=\"section-number-2\">1.</span> Subheading</h2>
+<div class=\"outline-text-2\" id=\"text-1\">
+<p>
+Content of subheading
+</p>
+</div>
+
+
+<div id=\"outline-container-test\" class=\"outline-3\">
+<h3 id=\"test\"><span class=\"section-number-3\">1.1.</span> Subsubheading</h3>
+<div class=\"outline-text-3\" id=\"text-1-1\">
+<p>
+Content of subsubheading
+</p>
+</div>
+</div>
+</div>
+")
+                                 ("Front" . "\
+<p>
+<b>Front</b>
+<i>Basic note with subheadings</i>
+<code>Works</code>
+</p>
+")) nil))
+
+           ("Basic note with Back subheading but no text before" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<div id=\"outline-container-test\" class=\"outline-2\">
+<h2 id=\"test\"><span class=\"section-number-2\">1.</span> Subheading</h2>
+<div class=\"outline-text-2\" id=\"text-1\">
+<p>
+Content of subheading
+</p>
+</div>
+</div>
+")
+                                 ("Front" . "<p>
+<b>Front</b>
+<i>Basic note with Back subheadings but no text before</i>
+<code>Works</code>
+</p>
+")) nil))
+
+           ("*Front* of /Basic note with omitted Front and Back/" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+<b>Back</b>
+<code>Works</code>
+</p>
+<ul class=\"org-ul\">
+<li>The heading is mapped to the first missing field: Front.</li>
+<li>The content is mapped to the second missing field: Back.</li>
+</ul>\n")
+                                 ("Front" . "\
+<p>
+<b>Front</b> of <i>Basic note with omitted Front and Back</i></p>
+")) nil))
+
+           ("*Front* of /Basic note with omitted Front and Back, and subheading/" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+<b>Back</b>
+<code>Fails</code>
+</p>
+<ul class=\"org-ul\">
+<li>The subheading is omitted.</li>
+</ul>
+
+
+<div id=\"outline-container-test\" class=\"outline-2\">
+<h2 id=\"test\"><span class=\"section-number-2\">1.</span> Subheading</h2>
+<div class=\"outline-text-2\" id=\"text-1\">
+<p>
+Content of subheading
+</p>
+</div>
+</div>
+")
+                                 ("Front" . "\
+<p>
+<b>Front</b> of <i>Basic note with omitted Front and Back, and subheading</i></p>
+")) nil))
+           ("Basic note with omitted Front, Back field heading, and text before" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+<b>Back</b>
+</p>
+")
+                                 ("Front" . "\
+<p>
+<b>Front</b>
+<i>Basic note with omitted Front, Back field heading, and text before</i>
+<code>Works</code>
+</p>
+<ul class=\"org-ul\">
+<li>The text before first heading is mapped to the front field.</li>
+</ul>
+")) nil))
+
+           ("*Front* of /Basic note with omitted Front, Back field heading, and no text before/" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+<b>Back</b>
+<code>Works</code>
+</p>
+")
+                                 ("Front" . "\
+<p>
+<b>Front</b> of <i>Basic note with omitted Front, Back field heading, and no text before</i></p>
+")) nil))
+
+           ("Note type with three fields: field1-field2-field3" .
+            #s(anki-editor-note nil "field1-field2-field3" "Test"
+                                (("field1" . "\
+<p>
+<b>field1</b>
+<i>Note type with three fields: field1-field2-field3</i>
+<code>Works</code>
+</p>
+")
+                                 ("field2" . "\
+<p>
+<b>field2</b>
+</p>
+")
+                                 ("field3" . "\
+<p>
+<b>field3</b>
+</p>
+")) nil))
+           ("field1-field2-field3 note, field2 omitted, text before first heading" .
+            #s(anki-editor-note nil "field1-field2-field3" "Test"
+                                (("field1" . "\
+<p>
+<b>field1</b>
+<i>field1-field2-field3 note, field2 omitted, text before first heading</i>
+<code>Works</code>
+</p>
+<ul class=\"org-ul\">
+<li>The text before the first heading is mapped to the missing field.</li>
+</ul>
+")
+                                 ("field2" . "\
+<p>
+<b>field2</b>
+</p>
+")
+                                 ("field3" . "\
+<p>
+<b>field3</b>
+</p>
+")) nil))
+
+           ("field1-field2-field3 note, field2 omitted, text before first heading, subheading in field1" .
+            #s(anki-editor-note nil "field1-field2-field3" "Test"
+                                (("field1" . "\
+<p>
+<b>field1</b>
+<i>field1-field2-field3 note, field2 omitted, text before first heading, subheading in field1</i>
+<code>Works</code>
+</p>
+
+
+<div id=\"outline-container-test\" class=\"outline-2\">
+<h2 id=\"test\"><span class=\"section-number-2\">1.</span> Subheading</h2>
+<div class=\"outline-text-2\" id=\"text-1\">
+<p>
+Content of subheading
+</p>
+</div>
+
+<div id=\"outline-container-test\" class=\"outline-3\">
+<h3 id=\"test\"><span class=\"section-number-3\">1.1.</span> Subsub</h3>
+</div>
+</div>
+")
+                                 ("field2" . "\
+<p>
+<b>field2</b>
+</p>
+")
+                                 ("field3" . "\
+<p>
+<b>field3</b>
+</p>
+")) nil))
+
+           ("*field2* of /field1-field2-field3, field2 omitted, no text before first heading/" .
+            #s(anki-editor-note nil "field1-field2-field3" "Test"
+                                (("field1" . "\
+<p>
+<b>field1</b>
+<code>Works</code>
+</p>
+")
+                                 ("field2" . "\
+<p>
+<b>field2</b> of <i>field1-field2-field3, field2 omitted, no text before first heading</i></p>
+")
+                                 ("field3" . "\
+<p>
+<b>field3</b>
+</p>
+")) nil))
+           ("*field1* of /field1-field2-field3 note, two omitted, text before first heading/" .
+            #s(anki-editor-note nil "field1-field2-field3" "Test"
+                                (("field1" . "\
+<p>
+<b>field1</b> of <i>field1-field2-field3 note, two omitted, text before first heading</i></p>
+")
+                                 ("field2" . "\
+<p>
+<b>field2</b>
+<code>Works</code>
+</p>
+<ul class=\"org-ul\">
+<li>The heading is mapped to the first missing field.</li>
+<li>Text before first heading is mapped to second missing field.</li>
+</ul>
+")
+                                 ("field3" . "\
+<p>
+<b>field3</b>
+</p>
+")) nil))
+           ("*Front* of /Basic note with Mathjax line break/" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+<b>Back</b>
+<code>Works</code>
+</p>
+
+[latex]<br>\\begin{align*}<br>\\forall \\epsilon &gt; 0, \\exists \\delta &gt; 0, \\forall y, \\\\<br>\\lvert x - y \\rvert &lt; \\delta \\implies \\lvert f(x) - f(y) \\rvert &lt; \\epsilon.<br>\\end{align*}<br>[/latex]
+")
+                                 ("Front" . "\
+<p>
+<b>Front</b> of <i>Basic note with Mathjax line break</i></p>
+")) nil))
+           ("*Front* of /Basic (and reversed card)/" .
+            #s(anki-editor-note nil "Basic (and reversed card)" "Test"
+                                (("Back" . "\
+<p>
+<b>Back</b>
+<code>Works</code>
+</p>
+")
+                                 ("Front" . "\
+<p>
+<b>Front</b> of <i>Basic (and reversed card)</i></p>
+")) nil))
+           ("Basic note with empty Back" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "")
+                                 ("Front" . "\
+<p>
+<b>Front</b>
+<i>Basic note with empty Back</i>
+<code>Works</code>
+</p>
+")) nil))
+           ("*Front* of /Empty Basic note/" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "")
+                                 ("Front" . "\
+<p>
+<b>Front</b> of <i>Empty Basic note</i></p>
+")) nil))
+
+           ("BASIC note with heading prepended and extra heading" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+Answer here.
+</p>
+")
+                                 ("Front" . "\
+<p>
+test *BASIC note with heading prepended and extra heading*Some text here is required.
+</p>
+
+<div id=\"outline-container-test\" class=\"outline-2\">
+<h2 id=\"test\"><span class=\"section-number-2\">1.</span> Extra heading</h2>
+<div class=\"outline-text-2\" id=\"text-1\">
+<p>
+Text of extra heading.
+</p>
+</div>
+</div>
+")) nil))
+           ("Cloze with headings" .
+            #s(anki-editor-note nil "Cloze" "Test"
+                                (("Back Extra" . "")
+                                 ("Text" . "<p>
+The capital of Norway is {{c1::Oslo.}}
+</p>
+")) nil))
+           ("Basic note with heading prepended" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+Back
+</p>
+")
+                                 ("Front" . "\
+<p>
+test *Basic note with heading prepended*Content
+</p>
+")) nil))
+
+           ("Tags property test" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+note with tag ccc
+</p>
+")
+                                 ("Front" . "\
+<p>
+Tags property test</p>
+"))
+                                ("ccc")))
+           ("Field from property" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+Back field
+</p>
+
+<p>
+<code>Doesn't work: With anki-editor-prepend-heading non-nil, the heading is prepended since property fields are not counted when determining whether to do so or not.</code>
+</p>
+")
+                                 ("Front" . "\
+<p>
+Front field from property</p>
+")) nil))
+           ("Two fields from property" .
+            #s(anki-editor-note nil "field1-field2-field3" "Test"
+                                (("field1" . "\
+<p>
+Field1 from property</p>
+")
+                                 ("field2" . "\
+<p>
+Field2 from contents
+<code>Works</code>
+</p>
+")
+                                 ("field3" . "\
+<p>
+Field3 from property</p>
+")) nil))
+
+           ("Note with image link" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "\
+<p>
+Image link: <img src=\"1x1.jpg\"></a>
+</p>
+")
+                                 ("Front" . "\
+<p>
+Note with image link</p>
+")) nil))
+
+           ("Last note with empty Back" .
+            #s(anki-editor-note nil "Basic" "Test"
+                                (("Back" . "")
+                                 ("Front" . "\
+<p>
+<b>Front</b>
+<i>Last note with empty Back</i>
+<code>Works</code>
+</p>
+")) nil)))))
+    (save-window-excursion
+      (with-current-buffer (anki-editor-test--test-org-buffer "test-files/test-notes.org")
+        (anki-editor-test--setup)
+        (unwind-protect
+            (org-map-entries
+             (lambda ()
+               ;; Only entries which have ANKI_NOTE_TYPE
+               (when (org-entry-get (point) "ANKI_NOTE_TYPE")
+                 (unwind-protect
+                     (let ((note-at-point nil)
+                           (headline nil)
+                           (expected-note nil))
+                       (setq headline (org-entry-get (point) "ITEM"))
+                       (setq note-at-point (anki-editor-note-at-point))
+                       (setq expected-note (cdr (assoc headline test-items-alist)))
+                       (unless expected-note
+                         (error "No expected note found for headline: '%s'" headline))
+                       (message "Testing %s headline" headline)
+                       (should (equal note-at-point expected-note)))))))
+          (anki-editor-test--teardown))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
