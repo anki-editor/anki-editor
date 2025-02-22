@@ -184,42 +184,50 @@ Front content
   :doc "Test `anki-editor--note-at-point' should return note at point."
   :in "test-files/test.org"
   :test
-  (progn (anki-editor-test--go-to-headline "Simple note")
-         (should (equal
-                  (anki-editor-note-at-point)
-                  #s(anki-editor-note nil "Basic" "Tests"
-                                      (("Back" . "<p>
+  (let ((expected-note
+         #s(anki-editor-note nil "Basic" "Tests"
+                             (("Back" . "<p>
 Lorem
 </p>
 ")
-                                       ("Front" . "<p>
+                              ("Front" . "<p>
 Simple note body
 </p>
-")) nil)))))
+")) nil nil nil))
+        (note-at-point (anki-editor-note-at-point)))
+    (setf (anki-editor-note-fields note-at-point)
+          (anki-editor--export-fields (anki-editor-note-fields note-at-point)))
+    (setf (anki-editor-note-marker expected-note) (point-marker))
+    (should (equal expected-note note-at-point))))
 
 (anki-editor-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
   :doc "Test `anki-editor--note-at-point' should render property field."
   :in "test-files/property-fields.org"
   :test
-  (progn (anki-editor-test--go-to-headline "\"Front\" property field")
-         (should (equal
-                  (anki-editor-note-at-point)
-                  #s(anki-editor-note nil "Basic" "Tests"
-                                      (("Back" . "<p>\nShould be included\n</p>\n")
-                                       ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
-                                      nil)))))
+  (let ((expected-note
+         #s(anki-editor-note nil "Basic" "Tests"
+                             (("Back" . "<p>\nShould be included\n</p>\n")
+                              ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                             nil nil nil))
+        (note-at-point (anki-editor-note-at-point)))
+    (setf (anki-editor-note-fields note-at-point)
+          (anki-editor--export-fields (anki-editor-note-fields note-at-point)))
+    (setf (anki-editor-note-marker expected-note) (point-marker))
+    (should (equal note-at-point expected-note))))
 
 (anki-editor-deftest test--note-at-point-for-note-with-property-field-should-override-subheading-field ()
   :doc "Test `anki-editor--note-at-point' should override subheading field."
   :in "test-files/property-fields.org"
   :test
-  (progn (anki-editor-test--go-to-headline "\"Front\" property field with \"Front\" subheading")
-         (should (equal
-                  (anki-editor-note-at-point)
-                  #s(anki-editor-note nil "Basic" "Tests"
-                                      (("Back" . "<p>\nShould be included\n</p>\n")
-                                       ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
-                                      nil)))))
+  (let ((expected-note #s(anki-editor-note nil "Basic" "Tests"
+                                           (("Back" . "<p>\nShould be included\n</p>\n")
+                                            ("Front" . "<p>\nCan one define an anki-field inside an org-mode property?</p>\n"))
+                                           nil nil nil))
+        (note-at-point (anki-editor-note-at-point)))
+    (setf (anki-editor-note-fields note-at-point)
+          (anki-editor--export-fields (anki-editor-note-fields note-at-point)))
+    (setf (anki-editor-note-marker expected-note) (point-marker))
+    (should (equal note-at-point expected-note))))
 
 (anki-editor-deftest test--note-at-point-for-examples-should-produce-correct-output ()
   :doc "Test `anki-editor--note-at-point' should produce correct output for examples."
@@ -230,47 +238,47 @@ Simple note body
                                 nil "Cloze" "Default"
                                 (("Back Extra" . "<p>\nDeck in file</p>\n")
                                  ("Text" . "<p>\nCards of this note will be created in {{c1::Default::which deck?}}\n</p>\n"))
-                                nil))
+                                nil nil nil))
            ("Deck in entry" . #s(anki-editor-note
                                  nil "Cloze" "Languages"
                                  (("Back Extra" . "<p>\nDeck in entry</p>\n")
                                   ("Text" . "<p>\nCards of this note will be created in {{c1::Languages::which deck?}}\n</p>\n"))
-                                 nil))
+                                 nil nil nil))
            ("Raw fields" . #s(anki-editor-note
                               nil "Basic" "Default"
                               (("Back" . "<p>\nWith property &lt;code&gt;:ANKI<sub>FORMAT</sub>: nil&lt;/code&gt;, content of the\nfield will be sent to Anki &lt;em&gt;unprocessed&lt;/em&gt;.  You can use\nwhatever Anki supports, like HTML tags.\n&lt;br&gt;\n&lt;br&gt;\nThis property is retrieved with inheritance, meaning that it can be\nset in any ancestor entries or at the top of the file with\n&lt;code&gt;#+PROPERTY: ANKI<sub>FORMAT</sub> nil&lt;/code&gt;, it's also possible to\noverride an outer level nil format with &lt;code&gt;:ANKI<sub>FORMAT</sub>: t&lt;/code&gt;.\n</p>\n")
                                ("Front" . "<p>\nHow to send the content of a field or fields to Anki as is?\n</p>\n"))
-                              nil))
+                              nil nil nil))
            ("Is there a shorter way to write notes?" . #s(anki-editor-note
                                                           nil "Basic" "Default"
                                                           (("Back" . "<p>\nYes, like this one, Front is missing, <code>anki-editor</code> will use note\nheading as Front.  This is neat as sometimes it's verbose to repeat\nthe same content in note heading and first field.\n</p>\n\n<p>\nThis works for all note types, just make one field absent and\n<code>anki-editor</code> will use note heading as that missing field.\n</p>\n")
                                                            ("Front" . "<p>\nIs there a shorter way to write notes?</p>\n"))
-                                                          nil))
+                                                          nil nil nil))
            ("Raining" . #s(anki-editor-note
                            nil "Basic (and reversed card)" "Languages"
                            (("Back" . "<p>\nit's raining very hard\n</p>\n")
                             ("Front" . "<p>\n(it's) raining cats and dogs\n</p>\n"))
-                           ("vocab" "idioms" "english")))
+                           ("vocab" "idioms" "english") nil nil))
            ("名词从句" . #s(anki-editor-note
                             nil "Basic" "Languages"
                             (("Back" . "<ol class=\"org-ol\">\n<li>That + 一个完整的句子, that无实际意义</li>\n<li>由疑问句改装而成</li>\n</ol>\n")
                              ("Front" . "<p>\n名词从句有哪些形式？\n</p>\n"))
-                            ("grammar" "english")))
+                            ("grammar" "english") nil nil))
            ("Cantonese" . #s(anki-editor-note
                              nil "Basic (and reversed card)" "Languages"
                              (("Back" . "<p>\n吃过饭了没？\n</p>\n")
                               ("Front" . "<p>\n食咗饭未吖？\n</p>\n"))
-                             ("cantonese" "dialect")))
+                             ("cantonese" "dialect") nil nil))
            ("Emacs Lisp" . #s(anki-editor-note
                               nil "Basic" "Computing"
                               (("Back" . "<div align=\"left\">\n\n<div class=\"org-src-container\">\n<pre class=\"src src-emacs-lisp\">(condition-case the-error\n    ;; the protected form\n    (progn\n      (do-something-dangerous)\n      (do-something-more-dangerous))\n  ;; handlers\n  (error-symbol1 (handler1 the-error))\n  ((error-symbol2 error-symbol3 (handler the-error))))\n</pre>\n</div>\n\n</div>\n")
                                ("Front" . "<p>\nHow to trap errors in emacs lisp?\n</p>\n"))
-                              ("lisp" "emacs" "programming")))
+                              ("lisp" "emacs" "programming") nil nil))
            ("Dot product" . #s(anki-editor-note
                                nil "Basic" "Mathematics"
                                (("Back" . "<p>\n<p>[$$]\\alpha \\cdot \\beta = a_1b_1 + a_2b_2 + a_3b_3[/$$]</p>\n</p>\n")
                                 ("Front" . "<p>\nHow to calculate the dot product of two vectors:\n</p>\n\n[latex]<br>\\begin{equation*}<br>\\alpha = \\{a_1, a_2, a_3\\}, \\beta = \\{b_1, b_2, b_3\\}<br>\\end{equation*}<br>[/latex]\n"))
-                               nil))
+                               nil nil nil))
            )))
     (org-map-entries
      (lambda ()
@@ -282,7 +290,12 @@ Simple note body
                    (expected-note nil))
                (setq headline (org-entry-get (point) "ITEM"))
                (setq note-at-point (anki-editor-note-at-point))
+               (setf (anki-editor-note-fields note-at-point)
+                     (anki-editor--export-fields
+                      (anki-editor-note-fields note-at-point)))
                (setq expected-note (cdr (assoc headline test-items-alist)))
+               (setf (anki-editor-note-marker expected-note)
+                     (point-marker))
                (should (equal note-at-point expected-note)))))))))
 
 (anki-editor-deftest test--anki-editor--map-fields-cloze-default ()
