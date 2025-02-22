@@ -5,7 +5,7 @@
 ;; Author: Lei Tan
 ;; Version: 0.3.3
 ;; URL: https://github.com/anki-editor/anki-editor
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((emacs "29.1"))
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -105,7 +105,7 @@ Useful for special tags like `marked' and `leech'."
 (defcustom anki-editor-latex-style 'builtin
   "The style of latex to translate into."
   :type '(radio (const :tag "Built-in" builtin)
-          (const :tag "MathJax" mathjax)))
+                (const :tag "MathJax" mathjax)))
 
 (defcustom anki-editor-include-default-style t
   "Whether to include the default style with `anki-editor-copy-styles'.
@@ -169,13 +169,24 @@ will be exported as
 This option only has an effect if `anki-editor-latex-style' is set to
 use Anki's builtin LaTeX support."
   :type '(choice (string :tag "Use this string for the class' name.")
-          (const :tag "Do not create an extra div for display math." nil)))
+                 (const :tag "Do not create an extra div for display math." nil)))
 
 (defcustom anki-editor-swap-two-fields nil
   "For note types in this list, swap fields
 `content-before-subheading' and `heading' when both model fields
 are missing."
   :type '(repeat string))
+
+(defcustom anki-editor-field-alias nil
+  "Alist of field name mapping for each note type.
+For example, setting the value
+
+  \\='((\"Basic\" . ((\"Solution\" . \"Back\"))))
+
+to this custom variable, registers the text `Solution' to be an
+alias of `Back' when used as a subheading of a Basic Anki note
+structure."
+  :type '(repeat (cons string (repeat (cons string string)))))
 
 ;;; AnkiConnect
 
@@ -359,8 +370,8 @@ of these calls in the same order."
                       (vconcat
                        --anki-editor-var-multi-actions--))))
      (cl-loop for result in --anki-editor-var-multi-results--
-              do (when-let ((pred (listp result))
-                            (err (alist-get 'error result)))
+              do (when-let* ((pred (listp result))
+                             (err (alist-get 'error result)))
                    (error err))
               collect result)))
 
@@ -586,30 +597,33 @@ The implementation is borrowed and simplified from ox-html."
    (funcall oldfun link desc info)))
 
 (defun anki-editor--export-string (src)
-  "Export string SRC and format it if FMT."
-  (or (org-export-string-as
-       src
-       anki-editor--ox-anki-html-backend
-       t
-       anki-editor--ox-export-ext-plist)
-      ;; 8.2.10 version of
-      ;; `org-export-filter-apply-functions'
-      ;; returns nil for an input of empty string,
-      ;; which will cause AnkiConnect to fail
-      ""))
+  "Export string SRC.
+If the string starts with '# raw', return the string as is."
+  (if (and (stringp src) (string-prefix-p "# raw" src))
+      (replace-regexp-in-string "^# raw[ \t\n]*" "" src)
+    (or (org-export-string-as
+         src
+         anki-editor--ox-anki-html-backend
+         t
+         anki-editor--ox-export-ext-plist)
+        ;; 8.2.10 version of
+        ;; `org-export-filter-apply-functions'
+        ;; returns nil for an input of empty string,
+        ;; which will cause AnkiConnect to fail
+        "")))
 
 (defun anki-editor--export-fields (fields)
   "Export FIELDS, which should be a list of the form ((name . contents) ...).
-If the result of anki-editor-entry-format is nil then FIELDS is returned as is,
-otherwise it will be returned with the same structure, but each individual
-contents will have been exported."
-  (let* ((export-p (anki-editor-entry-format)))
-    (if export-p
-        (mapcar (lambda (x)
-                  (cons (car x)
-                        (anki-editor--export-string (cdr x))))
-                fields)
-      fields)))
+If the result of anki-editor-entry-format is nil then FIELDS is returned
+as is, otherwise it will be returned with the same structure, but each
+individual contents will have been exported. If FMT is non-nil, also
+format the string, see `anki-editor--export-string'."
+  (if (anki-editor-entry-format)
+      (mapcar (lambda (x)
+                (cons (car x)
+                      (anki-editor--export-string (cdr x))))
+              fields)
+    fields))
 
 
 ;;; Core primitives
@@ -626,6 +640,7 @@ contents will have been exported."
 (defconst anki-editor-prop-tags-plus (concat anki-editor-prop-tags "+"))
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
 (defconst anki-editor-prop-default-note-type "ANKI_DEFAULT_NOTE_TYPE")
+(defconst anki-editor-prop-swap-two-fields "ANKI_SWAP_TWO_FIELDS")
 (defconst anki-editor-org-tag-regexp "^\\([[:alnum:]_@#%]+\\)+$")
 
 (cl-defstruct anki-editor-note
@@ -1018,12 +1033,19 @@ and else from variable `anki-editor-prepend-heading'."
          (content-before-subheading
           (anki-editor--note-contents-before-subheading))
          (subheading-fields (anki-editor--build-fields))
+         (field-swap
+          (if (member note-type
+                      (or (anki-editor--entry-get-multivalued-property-with-inheritance
+                           nil anki-editor-prop-swap-two-fields)
+                          anki-editor-swap-two-fields))
+              1 0))
          (fields (anki-editor--map-fields heading
                                           content-before-subheading
                                           subheading-fields
                                           note-type
                                           level
-                                          prepend-heading))
+                                          prepend-heading
+                                          field-swap))
          ;; Sorting fields not necessary for Anki, but it removes
          ;; randomness which breaks our tests.
          (fields (sort fields (lambda (a b) (string< (car a) (car b))))))
@@ -1126,7 +1148,7 @@ Leading whitespace, drawers, and planning content is skipped."
                    for nextelem = (progn (goto-char eoh)
                                          (org-element-at-point))
                    while (not (or (memq (org-element-type nextelem) '(headline))
-                                  (eobp)))
+                                (eobp)))
                    finally return (and eoh
                                        (if (eobp)
                                            (org-element-property :end nextelem)
@@ -1147,7 +1169,8 @@ Leading whitespace, drawers, and planning content is skipped."
                                 subheading-fields
                                 note-type
                                 level
-                                prepend-heading)
+                                prepend-heading
+                                field-swap)
   "Map `heading', pre-subheading content, and subheadings to fields.
 
 When the `subheading-fields' don't match the `note-type's fields,
@@ -1157,10 +1180,21 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
     (let* ((model-fields (alist-get
                           note-type anki-editor--model-fields
                           nil nil #'string=))
+           (field-alias (alist-get note-type anki-editor-field-alias
+                                   nil nil #'string=))
            (property-fields (anki-editor--property-fields model-fields))
-           (named-fields (seq-uniq (append property-fields subheading-fields)
-                                   (lambda (left right)
-                                     (string= (car left) (car right)))))
+           (named-fields (seq-uniq
+                          (append property-fields
+                                  (mapcar
+                                   (lambda (field)
+                                     (let ((aliased (alist-get (car field) field-alias
+                                                               nil nil #'string=)))
+                                       (cond
+                                        (aliased `(,aliased . ,(cdr field)))
+                                        (t field))))
+                                   subheading-fields))
+                          (lambda (left right)
+                            (string= (car left) (car right)))))
            (fields-matching (cl-intersection
                              model-fields (mapcar #'car named-fields)
                              :test #'string=))
@@ -1604,7 +1638,15 @@ Otherwise this command is like `anki-editor-set-note-type'."
 
 (defun anki-editor-cloze (begin end arg hint)
   "Cloze region from BEGIN to END with number ARG."
-  (let ((region (buffer-substring begin end)))
+  (let* ((region (buffer-substring begin end))
+         ;; If the start of the region contains Org markup, then there needs
+         ;; to be some space between the cloze start and the start of the
+         ;; region. E.g., otherwise {{c1::/foo/}} would result in Org not
+         ;; recognising it as italics (and it would not be exported as such).
+         (region (if (cl-some (lambda (em) (string-prefix-p em region))
+                              (mapcar #'car org-emphasis-alist))
+                     (concat " " region)
+                   region)))
     (save-excursion
       (delete-region begin end)
       (insert (with-output-to-string
@@ -1710,8 +1752,8 @@ note or deck."
                                (progn
                                  (cl-incf end (length anki-editor--style-end))
                                  ;; skip whitespaces
-                                 (when-let ((newend (string-match
-                                                     "[[:graph:]]" css end)))
+                                 (when-let* ((newend (string-match
+                                                      "[[:graph:]]" css end)))
                                    (setq end newend))
                                  (concat
                                   (substring css 0 start)
@@ -1741,7 +1783,7 @@ note or deck."
            do
            (cl-incf end (length anki-editor--style-end))
            ;; also remove whitespaces
-           (when-let ((newend (string-match "[[:graph:]]" css end)))
+           (when-let* ((newend (string-match "[[:graph:]]" css end)))
              (setq end newend))
            (message "Resetting styles for \"%s\"..." model)
            (anki-editor-api-call-result

@@ -24,17 +24,13 @@
 * Raw fields
   :PROPERTIES:
   :ANKI_NOTE_TYPE: Basic
+  :ANKI_FORMAT: nil
   :END:
 
 ** Front
-
    How to send the content of a field or fields to Anki as is?
 
 ** Back
-   :PROPERTIES:
-   :ANKI_FORMAT: nil
-   :END:
-
    With property <code>:ANKI_FORMAT: nil</code>, content of the
    field will be sent to Anki <em>unprocessed</em>.  You can use
    whatever Anki supports, like HTML tags.
@@ -44,6 +40,17 @@
    set in any ancestor entries or at the top of the file with
    <code>#+PROPERTY: ANKI_FORMAT nil</code>, it's also possible to
    override an outer level nil format with <code>:ANKI_FORMAT: t</code>.
+* Raw and HTML-formatted fields in the same note
+  :PROPERTIES:
+  :ANKI_NOTE_TYPE: Basic
+  :END:
+
+** Front
+This field will be formatted as HTML.
+
+** Back
+# raw
+If you start a field with ~# raw~, the content will be sent to Anki as is.
 
 * Is there a shorter way to write notes?
   :PROPERTIES:

@@ -27,3 +27,12 @@ This is the extra content.
 :END:
 
 This is the {{c1::content}}.
+
+* Note with swap two fields as property
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_DECK: Tests
+:ANKI_SWAP_TWO_FIELDS: Basic Cloze
+:END:
+
+This is the {{c1::content}}.

@@ -134,6 +134,24 @@ actual body of the test."
          (unwind-protect ,test
            (anki-editor-test--teardown))))))
 
+(anki-editor-deftest test--export-string-with-raw ()
+  :doc "Test `anki-editor--export-string` with `# raw` prefix."
+  :in "test-files/test.org"
+  :test
+  (progn
+    (should (equal (anki-editor--export-string "# raw content" t) "content"))
+    (should (equal (anki-editor--export-string "# raw  content" t) "content"))
+    (should (equal (anki-editor--export-string "# raw\ncontent" t) "content"))
+    (should (equal (anki-editor--export-string "# raw" t) ""))))
+
+(anki-editor-deftest test--export-string-without-raw ()
+  :doc "Test `anki-editor--export-string` without `# raw` prefix."
+  :in "test-files/test.org"
+  :test
+  (progn
+    (should (equal (anki-editor--export-string "content" t) "<p>\ncontent</p>\n"))
+    (should (equal (anki-editor--export-string "" t) ""))))
+
 (ert-deftest test--concat-fields-should-concatenate-fields-into-string ()
   "Test `anki-editor--concat-fields' should concatenate fields into string."
   (should (equal (anki-editor--concat-fields '("Front" "Back")
@@ -341,6 +359,174 @@ Simple note body
          (second-field (nth 1 fields)))
     (should (and (string= "Back Extra" (car first-field))
                  (string-match "Text subheading omitted" (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor-field-alias-basic-with-alias ()
+  :doc "Test `anki-editor--map-fields' should use field alias when mapping exists."
+  :in "test-files/aliased-fields.org"
+  :test
+  (let* ((anki-editor-field-alias '(("Basic" . (("Answer" . "Back")))))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Exercise 1.1")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "2000" (cdr first-field))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "The last year of the 20th century was" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor-field-alias-cloze-with-back-extra ()
+  :doc "Test `anki-editor--map-fields' should handle back extra by default."
+  :in "test-files/aliased-fields.org"
+  :test
+  (let* ((anki-editor-swap-two-fields '("Cloze"))
+         (anki-editor-field-alias nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze with Back Extra")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "This should map to Back Extra." (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor-field-alias-cloze-with-alias ()
+  :doc "Test `anki-editor--map-fields' should use field alias when mapping exists."
+  :in "test-files/aliased-fields.org"
+  :test
+  (let* ((anki-editor-swap-two-fields '("Cloze"))
+         (anki-editor-field-alias '(("Cloze" . (("Note" . "Back Extra")))))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze with Note as Back Extra")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "This should map to Back Extra." (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-not-use-exclude-tags-with-nested-subheadings ()
+  :doc "Test `anki-editor--build-fields' should not use exclude tags with nested subheadings."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "This is back" (cdr first-field))
+                 (string-match "This will be included in the content if" (cdr first-field))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "This is front" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-use-exclude-tags-with-nested-subheadings ()
+  :doc "Test `anki-editor--build-fields' should use exclude tags with nested subheadings."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags '("noexport"))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "This is back" (cdr first-field))
+                 (not (string-match "This will be included in the content if" (cdr first-field)))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "This is front" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-not-use-exclude-tags-in-short-form-basic ()
+  :doc "Test `anki-editor--build-fields' should not use exclude tags in short form basic."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (string-match "This will be included in the content if" (cdr first-field))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "Basic Anki note in short form" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-use-exclude-tags-in-short-form-basic ()
+  :doc "Test `anki-editor--build-fields' should use exclude tags in short form basic."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags '("noexport"))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Basic Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (not (string-match "This will be included in the content if" (cdr first-field)))))
+    (should (and (string= "Front" (car second-field))
+                 (string-match "Basic Anki note in short form" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-not-use-exclude-tags-in-short-form-cloze ()
+  :doc "Test `anki-editor--build-fields' should not use exclude tags in short form Cloze."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (string-match "This will be included in the content if" (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "Cloze Anki note in short form" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--build-fields-should-use-exclude-tags-in-short-form-cloze ()
+  :doc "Test `anki-editor--build-fields' should use exclude tags in short form Cloze."
+  :in "test-files/export-exclude-tags.org"
+  :test
+  (let* ((org-export-exclude-tags '("noexport"))
+         (note (progn
+                 (anki-editor-test--go-to-headline "Cloze Anki note in short form")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Content" (cdr first-field))
+                 (not (string-match "This will be included in the content if" (cdr first-field)))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "Cloze Anki note in short form" (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--map-fields-cloze-should-swap-heading-and-content-before-subheadings-with-property ()
+  :doc "Test `anki-editor--map-fields' should swap heading and content before subheadings with property."
+  :in "test-files/cloze.org"
+  :test
+  (let* ((anki-editor-swap-two-fields nil)
+         (note (progn
+                 (anki-editor-test--go-to-headline "Note with swap two fields as property")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Note with swap two fields as property" (cdr first-field))))
     (should (and (string= "Text" (car second-field))
                  (string-match "This is the {{c1::content}}." (cdr second-field))))))
 
