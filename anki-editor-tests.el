@@ -139,18 +139,18 @@ actual body of the test."
   :in "test-files/test.org"
   :test
   (progn
-    (should (equal (anki-editor--export-string "# raw content" t) "content"))
-    (should (equal (anki-editor--export-string "# raw  content" t) "content"))
-    (should (equal (anki-editor--export-string "# raw\ncontent" t) "content"))
-    (should (equal (anki-editor--export-string "# raw" t) ""))))
+    (should (equal (anki-editor--export-string "# raw content") "content"))
+    (should (equal (anki-editor--export-string "# raw  content") "content"))
+    (should (equal (anki-editor--export-string "# raw\ncontent") "content"))
+    (should (equal (anki-editor--export-string "# raw") ""))))
 
 (anki-editor-deftest test--export-string-without-raw ()
   :doc "Test `anki-editor--export-string` without `# raw` prefix."
   :in "test-files/test.org"
   :test
   (progn
-    (should (equal (anki-editor--export-string "content" t) "<p>\ncontent</p>\n"))
-    (should (equal (anki-editor--export-string "" t) ""))))
+    (should (equal (anki-editor--export-string "content") "<p>\ncontent</p>\n"))
+    (should (equal (anki-editor--export-string "") ""))))
 
 (ert-deftest test--concat-fields-should-concatenate-fields-into-string ()
   "Test `anki-editor--concat-fields' should concatenate fields into string."
