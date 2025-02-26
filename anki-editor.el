@@ -1202,8 +1202,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                             collect (cons f (alist-get
                                              f named-fields
                                              nil nil #'string=))))
-           (heading-format anki-editor-prepend-heading-format)
-           (field-swap (if (member note-type anki-editor-swap-two-fields) 1 0)))
+           (heading-format anki-editor-prepend-heading-format))
       (cond ((equal 0 (length fields-missing))
              (when (< 0 (length fields-extra))
                (user-error "Failed to map all named fields")))
