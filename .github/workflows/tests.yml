@@ -1,7 +1,9 @@
 name: "Unit tests"
 on:
   pull_request: {}
-
+  push:
+    branches:
+      - master
 
 jobs:
   test-emacs-28:
@@ -17,7 +19,7 @@ jobs:
           apt-get -y update && \
               apt-get install -y python3
       - name: Emacs test
-        run: emacs -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
+        run: emacs -Q -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
 
   test-emacs-29:
     runs-on: ubuntu-latest
@@ -31,18 +33,4 @@ jobs:
           apt-get -y update && \
               apt-get install -y python3
       - name: Emacs test
-        run: emacs -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
-
-  # # TODO Turn on when ubuntu-24.04 workers are available
-  # test-emacs-29:
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: Install dependencies
-  #       run: >
-  #         sudo apt-get -y update &&
-  #         sudo apt-get install -y emacs-nox
-
-  #     - name: Emacs test
-  #       run: emacs -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
+        run: emacs -Q -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
