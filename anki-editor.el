@@ -1566,6 +1566,31 @@ When NOTE-TYPE is nil, prompt for one."
          nil
        'tree))))
 
+
+(defun anki-editor-set-deck (&optional prefix note-deck)
+  "Set deck for current or closest previous heading.
+With PREFIX set note type for all top-level headings in subtree.
+When NOTE-DECK is nil, prompt for one."
+  (interactive "P")
+  (let ((note-deck
+         (or note-deck
+             (completing-read "Note deck: "
+                              (sort (anki-editor-deck-names) #'string-lessp)
+                              nil
+                              nil
+                              (org-entry-get-with-inheritance anki-editor-prop-deck))))
+        (level
+         (if prefix
+             (+ 1 (or (org-current-level) 0))
+           (or (org-current-level) 0))))
+    (org-map-entries
+     (lambda () (org-set-property anki-editor-prop-deck note-deck))
+     (concat "LEVEL=" (number-to-string level))
+     (if (and prefix
+              (equal 1 level))
+         nil
+       'tree))))
+
 (defun anki-editor-set-default-note-type (&optional prefix)
   "Set default note type for current or closest previous heading.
 The note type is taken from the ANKI_DEFAULT_NOTE_TYPE property,
