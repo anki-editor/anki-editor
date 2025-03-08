@@ -1081,8 +1081,9 @@ ELEMENT should be the Org element at point."
            while eoh
            for subelem = (progn (goto-char eoh)
                                 (org-element-context))
-           while (memq (org-element-type subelem)
-                       '(drawer planning property-drawer))
+           while (and (memq (org-element-type subelem)
+                            '(drawer planning property-drawer))
+                      (not (eobp)))
            finally return (and eoh (org-element-property :begin subelem))))
 
 (defun anki-editor--build-fields ()
