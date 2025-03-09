@@ -1,3 +1,5 @@
+[[https://github.com/anki-editor/anki-editor/actions/workflows/tests.yml/badge.svg]]
+
 * anki-editor
 
 anki-editor is an [[https://www.gnu.org/software/emacs/emacs.html][Emacs]] minor mode for making [[https://apps.ankiweb.net][Anki]] cards with [[https://orgmode.org][Org Mode]].
