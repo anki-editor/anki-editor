@@ -140,8 +140,10 @@ If you use Doom Emacs, add the followings to ~packages.el~ and ~config.el~ respe
 
    - Anki deck is provided by ~ANKI_DECK~ property.  This property is
      retrieved with inheritance, that is to say, it can be put in any
-     ancestor entries or at top of the file by ~#+PROPERTY: ANKI_DECK
-     DeckName~.
+     ancestor entries or at top of the file by ~#+PROPERTY: ANKI_DECK DeckName~.
+   - Sub decks (nested decks) are supported via ~::~ delimiters.
+     For example, to push a card to the sub deck ~SubDeck~ inside of
+     ~SuperDeck~, set ~:ANKI_DECK:~ to ~SuperDeck::SubDeck~.
    - ~ANKI_NOTE_TYPE~ property is to specify the Anki note type of a
      note and is also required for identifying an Anki note entry.
    - Anki tags can be provided in two ways:
