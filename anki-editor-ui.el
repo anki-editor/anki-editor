@@ -1,7 +1,7 @@
 ;;; anki-editor-ui.el --- UI for anki-editor  -*- lexical-binding: t; -*-
 
 ;; Author: orgtre
-;; Version: 0.3.3
+;; Version: 0.3.4
 ;; URL: https://github.com/anki-editor/anki-editor
 ;; Package-Requires: ((emacs "28.1"))
 

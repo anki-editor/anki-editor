@@ -1,9 +1,10 @@
 ;;; anki-editor.el --- Minor mode for making Anki cards with Org  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018-2022 Lei Tan <louietanlei[at]gmail[dot]com>
+;;               2022–2025 anki-editor contributors
 
 ;; Author: Lei Tan
-;; Version: 0.3.3
+;; Version: 0.3.4
 ;; URL: https://github.com/anki-editor/anki-editor
 ;; Package-Requires: ((emacs "29.1"))
 
@@ -315,7 +316,7 @@ Returns a property list containing the keys :count, :successes,
 responses processed, the count of successful responses, the count
 of unsuccessful responses, and a list of the return values from
 the passed callbacks."
-  (when-let (queue (anki-editor-api--get-active-queue))
+  (when-let* ((queue (anki-editor-api--get-active-queue)))
     (anki-editor-api--toggle-active-queue)
     (let* ((requests (reverse queue))
            (get-req (lambda (req) (plist-get req :request)))
