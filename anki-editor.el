@@ -189,6 +189,12 @@ alias of `Back' when used as a subheading of a Basic Anki note
 structure."
   :type '(repeat (cons string (repeat (cons string string)))))
 
+(defcustom anki-editor-force-update nil
+  "Whether to force updates to notes.
+That is, ignore the generated hash and push the note to Anki regardless
+of whether it changed or not."
+  :type 'boolean)
+
 ;;; AnkiConnect
 
 (defconst anki-editor-api-version 6)
@@ -758,7 +764,8 @@ Return :create, :update, or :skip as appropriate."
         :create)
     (let* ((old-note-hash (anki-editor-note-hash note))
            (new-note-hash (anki-editor--calc-note-hash note)))
-      (if (not (string= old-note-hash new-note-hash))
+      (if (or (not (string= old-note-hash new-note-hash))
+              anki-editor-force-update)
           (progn
             (setf (anki-editor-note-hash note) new-note-hash)
             (anki-editor--enqueue-update-note note)
