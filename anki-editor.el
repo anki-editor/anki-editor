@@ -69,85 +69,102 @@
 
 (defcustom anki-editor-export-note-fields-on-push t
   "Whether to export the fields of a note when pushing to anki."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-break-consecutive-braces-in-latex nil
   "If non-nil, automatically separate consecutive `}' in latex by spaces.
 This prevents early closing of cloze."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-allow-duplicates nil
   "If non-nil, do not fail on duplicate notes."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-org-tags-as-anki-tags t
   "If nil, tags of entries won't be counted as Anki tags."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-protected-tags '("marked" "leech")
   "A list of protected tags to not delete from Anki.
 These won't be deleted from Anki even when they're absent in Org entries.
 Useful for special tags like `marked' and `leech'."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'anki-editor)
 
 (defcustom anki-editor-ignored-org-tags
   (append org-export-select-tags org-export-exclude-tags)
   "A list of Org tags that are ignored when constructing notes."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'anki-editor)
 
 (defcustom anki-editor-api-host "127.0.0.1"
   "The network address AnkiConnect is listening on."
-  :type 'string)
+  :type 'string
+  :group 'anki-editor)
 
 (defcustom anki-editor-api-port "8765"
   "The port number AnkiConnect is listening on."
-  :type 'string)
+  :type 'string
+  :group 'anki-editor)
 
 (defcustom anki-editor-latex-style 'builtin
   "The style of latex to translate into."
   :type '(radio (const :tag "Built-in" builtin)
-                (const :tag "MathJax" mathjax)))
+                (const :tag "MathJax" mathjax))
+  :group 'anki-editor)
 
 (defcustom anki-editor-include-default-style t
   "Whether to include the default style with `anki-editor-copy-styles'.
 The default style is specified in `org-html-style-default'.
 For example, you might want to turn this off when you are going to
 provide your custom styles in `anki-editor-html-head'."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-html-head nil
   "Additional html tags to append with `anki-editor-copy-styles'.
 Can be used to add custom styles and scripts to card styles."
-  :type 'string)
+  :type 'string
+  :group 'anki-editor)
 
 (defcustom anki-editor-note-match nil
   "Additional matching string for mapping through Anki note headings.
 A leading logical operator like `+' or `&' is required."
-  :type 'string)
+  :type 'string
+  :group 'anki-editor)
 
 (defcustom anki-editor-prepend-heading nil
   "Prepend note heading to contents before first (sub)heading.
 This is only in effect when exactly one note-type field is not found
 among the note subheadings and there is content before the first subheading."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-prepend-heading-format "/%s/\n\n"
   "Format string used when prepending note heading.
 It should contain `%s' as placeholder for the heading, see `format'."
-  :type 'string)
+  :type 'string
+  :group 'anki-editor)
 
 (defcustom anki-editor-insert-note-always-use-content nil
   "Whether to always make use of content before (sub)heading.
 See `anki-editor-insert-note', whose behavior this controls."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-default-note-type "Basic"
   "Default note type when creating anki-editor notes in org."
-  :type 'string)
+  :type 'string
+  :group 'anki-editor)
 
 (defcustom anki-editor-gui-browse-ensure-foreground t
   "Ensure that `anki-editor-gui-browse' opens in foreground."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 (defcustom anki-editor-latex-display-math-div nil
   "Whether to create an extra div for display math.
@@ -170,13 +187,15 @@ will be exported as
 This option only has an effect if `anki-editor-latex-style' is set to
 use Anki's builtin LaTeX support."
   :type '(choice (string :tag "Use this string for the class' name.")
-                 (const :tag "Do not create an extra div for display math." nil)))
+                 (const :tag "Do not create an extra div for display math." nil))
+  :group 'anki-editor)
 
 (defcustom anki-editor-swap-two-fields nil
   "For note types in this list, swap fields
 `content-before-subheading' and `heading' when both model fields
 are missing."
-  :type '(repeat string))
+  :type '(repeat string)
+  :group 'anki-editor)
 
 (defcustom anki-editor-field-alias nil
   "Alist of field name mapping for each note type.
@@ -187,13 +206,15 @@ For example, setting the value
 to this custom variable, registers the text `Solution' to be an
 alias of `Back' when used as a subheading of a Basic Anki note
 structure."
-  :type '(repeat (cons string (repeat (cons string string)))))
+  :type '(repeat (cons string (repeat (cons string string))))
+  :group 'anki-editor)
 
 (defcustom anki-editor-force-update nil
   "Whether to force updates to notes.
 That is, ignore the generated hash and push the note to Anki regardless
 of whether it changed or not."
-  :type 'boolean)
+  :type 'boolean
+  :group 'anki-editor)
 
 ;;; AnkiConnect
 
