@@ -453,6 +453,7 @@ The result is the path to the newly stored media file."
 (defconst anki-editor--ox-anki-html-backend
   (org-export-create-backend
    :parent 'html
+   :name 'anki-html
    :transcoders '((latex-fragment . anki-editor--ox-latex)
                   (latex-environment . anki-editor--ox-latex))))
 
