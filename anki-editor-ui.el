@@ -42,7 +42,7 @@
   :type 'string)
 
 
-;;;###autoload
+;;;###autoload (autoload 'anki-editor-ui "anki-editor-ui" nil t)
 (transient-define-prefix anki-editor-ui ()
   "Transient for anki-editor."
   [["Org"
