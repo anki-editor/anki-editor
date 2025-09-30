@@ -41,6 +41,8 @@
   "Extra syntax explanation shown before the deck prompt."
   :type 'string)
 
+
+;;;###autoload (autoload 'anki-editor-ui "anki-editor-ui" nil t)
 (transient-define-prefix anki-editor-ui ()
   "Transient for anki-editor."
   [["Org"
