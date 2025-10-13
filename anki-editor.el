@@ -785,27 +785,51 @@ If the NOTE's id is nil then enqueue a create-note action.
 
 If instead the hash property of the note at (anki-editor-note-marker NOTE)
 is not the same as the hash calculated from NOTE then enqueue an update-note
-action.
+action, after checking for remote conflicts.
 
 Otherwise the note is identical to last time we pushed to anki,
 so do nothing.
 
-Return :create, :update, or :skip as appropriate."
+Return :create, :update, or :skip as appropriate.
+For conflicts with skip policy, sets ANKI_FAILURE_REASON and returns :skip."
   (set-buffer (marker-buffer (anki-editor-note-marker note)))
   (goto-char (anki-editor-note-marker note))
   (anki-editor--clear-failure-reason)
   (if (null (anki-editor-note-id note))
+      ;; New note - create
       (progn
         (anki-editor--enqueue-create-note note)
         :create)
+    ;; Existing note - check if there are local changes
     (let* ((old-note-hash (anki-editor-note-hash note))
            (new-note-hash (anki-editor--calc-note-hash note)))
       (if (or (not (string= old-note-hash new-note-hash))
               anki-editor-force-update)
-          (progn
-            (setf (anki-editor-note-hash note) new-note-hash)
-            (anki-editor--enqueue-update-note note)
-            :update)
+          ;; Note has local changes - check for remote conflict
+          (let* ((note-id (string-to-number (anki-editor-note-id note)))
+                 (stored-remote-hash (org-entry-get nil anki-editor-prop-remote-hash))
+                 (remote-conflict (anki-editor--check-remote-conflict
+                                  note-id stored-remote-hash)))
+            (if remote-conflict
+                ;; Conflict detected - apply policy
+                (let ((action (anki-editor--resolve-conflict note note-id remote-conflict)))
+                  (pcase action
+                    ('skip
+                     ;; Treat as error - set failure reason
+                     (anki-editor--set-failure-reason
+                      "Conflict: note modified externally in Anki")
+                     :skip)
+                    ('overwrite
+                     ;; Proceed with update
+                     (setf (anki-editor-note-hash note) new-note-hash)
+                     (anki-editor--enqueue-update-note note)
+                     :update)))
+              ;; No conflict - proceed with update
+              (progn
+                (setf (anki-editor-note-hash note) new-note-hash)
+                (anki-editor--enqueue-update-note note)
+                :update)))
+        ;; No local changes - skip
         :skip))))
 
 (defun anki-editor--make-set-note-failure-reason (note)
@@ -851,6 +875,16 @@ Return :create, :update, or :skip as appropriate."
               (set-buffer (marker-buffer (anki-editor-note-marker note)))
               (goto-char (anki-editor-note-marker note))
               (anki-editor--set-note-hash (anki-editor-note-hash note))
+              ;; Fetch and store remote hash after update
+              (anki-editor-api-enqueue-request
+               'notesInfo
+               (list :notes (list (string-to-number (anki-editor-note-id note))))
+               :success (lambda (result)
+                          (let* ((note-info (car result))
+                                 (remote-hash (anki-editor--calc-remote-hash note-info)))
+                            (set-buffer (marker-buffer (anki-editor-note-marker note)))
+                            (goto-char (anki-editor-note-marker note))
+                            (anki-editor--set-remote-hash remote-hash))))
               ;; maybe this whole function should be a multi call.
               ;; can you have a multi in a multi? will anki process it?
               (anki-editor--enqueue-change-deck note)

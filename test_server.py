@@ -51,6 +51,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             return self.action_add_note(params)
         elif action == 'updateNoteFields':
             return self.action_update_note_fields(params)
+        elif action == 'updateNote':
+            return self.action_update_note(params)
         elif action == 'notesInfo':
             return self.action_notes_info(params)
         elif action == 'multi':
@@ -97,6 +99,24 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
         # Update fields
         SimpleHTTPRequestHandler.notes_db[note_id]['fields'].update(fields)
+
+        return {'result': None, 'error': None}
+
+    def action_update_note(self, params):
+        """Handle updateNote action - updates note fields, deck, and tags."""
+        note = params['note']
+        note_id = note['id']
+
+        if note_id not in SimpleHTTPRequestHandler.notes_db:
+            return {'result': None, 'error': f'Note with ID {note_id} not found'}
+
+        # Update all note properties
+        if 'fields' in note:
+            SimpleHTTPRequestHandler.notes_db[note_id]['fields'].update(note['fields'])
+        if 'deckName' in note:
+            SimpleHTTPRequestHandler.notes_db[note_id]['deckName'] = note['deckName']
+        if 'tags' in note:
+            SimpleHTTPRequestHandler.notes_db[note_id]['tags'] = note['tags']
 
         return {'result': None, 'error': None}
 
