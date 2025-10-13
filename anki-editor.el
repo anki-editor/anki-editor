@@ -413,7 +413,7 @@ of these calls in the same order."
               do (when-let* ((pred (listp result))
                              (err (alist-get 'error result)))
                    (error err))
-              collect result)))
+              collect (alist-get 'result result))))
 
 (defmacro anki-editor-api-enqueue (action &rest params)
   "Like `anki-editor-api-call', but is only used in combination

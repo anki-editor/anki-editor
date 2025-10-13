@@ -30,10 +30,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def handle_action(self, action, params=None):
         if action == 'modelNames':
-            return ['Basic', 'Cloze', 'Basic (and reversed card)']
+            return {'result': ['Basic', 'Cloze', 'Basic (and reversed card)'], 'error': None}
         elif action == 'modelFieldNames':
             model_name = params['modelName']
-            return self.action_model_field_names_response(model_name)
+            return {'result': self.action_model_field_names_response(model_name), 'error': None}
         elif action == 'storeMediaFile':
             file_name = params['filename']
             return {"result": file_name, "error": None}
