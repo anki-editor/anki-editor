@@ -216,6 +216,18 @@ of whether it changed or not."
   :type 'boolean
   :group 'anki-editor)
 
+(defcustom anki-editor-conflict-policy 'ask
+  "Policy for handling notes modified externally in Anki.
+
+When a note has been modified in Anki since the last push:
+  ask       - Prompt for each conflict (default)
+  skip      - Skip the note and report in summary
+  overwrite - Push local changes anyway"
+  :type '(choice (const :tag "Ask for each conflict" ask)
+                 (const :tag "Skip conflicting notes" skip)
+                 (const :tag "Overwrite remote changes" overwrite))
+  :group 'anki-editor)
+
 ;;; AnkiConnect
 
 (defconst anki-editor-api-version 6)
@@ -660,6 +672,8 @@ format the string, see `anki-editor--export-string'."
 (defconst anki-editor-prop-note-type "ANKI_NOTE_TYPE")
 (defconst anki-editor-prop-note-id "ANKI_NOTE_ID")
 (defconst anki-editor-prop-note-hash "ANKI_NOTE_HASH")
+(defconst anki-editor-prop-remote-hash "ANKI_REMOTE_HASH"
+  "Property name for storing hash of remote note state in Anki.")
 (defconst anki-editor-prop-deck "ANKI_DECK")
 (defconst anki-editor-prop-format "ANKI_FORMAT")
 (defconst anki-editor-prop-prepend-heading "ANKI_PREPEND_HEADING")
@@ -815,6 +829,16 @@ Return :create, :update, or :skip as appropriate."
               ;; the note struct, so update id first.
               (setf (anki-editor-note-id note) (number-to-string result))
               (anki-editor--set-note-hash (anki-editor--calc-note-hash note))
+              ;; Fetch and store remote hash
+              (anki-editor-api-enqueue-request
+               'notesInfo
+               (list :notes (list result))
+               :success (lambda (notes-info)
+                          (let* ((note-info (car notes-info))
+                                 (remote-hash (anki-editor--calc-remote-hash note-info)))
+                            (set-buffer (marker-buffer (anki-editor-note-marker note)))
+                            (goto-char (anki-editor-note-marker note))
+                            (anki-editor--set-remote-hash remote-hash))))
               :created-note)
    :error (anki-editor--make-set-note-failure-reason note)))
 
@@ -855,7 +879,8 @@ Return :create, :update, or :skip as appropriate."
    :error (anki-editor--make-set-note-failure-reason note)))
 
 (defun anki-editor--push-note (note)
-  "Request AnkiConnect for updating or creating NOTE."
+  "Request AnkiConnect for updating or creating NOTE.
+Returns 'created, 'updated, or 'skipped depending on the action taken."
   (cond
    ((null (anki-editor-note-id note))
     (anki-editor--create-note note))
@@ -874,6 +899,24 @@ Return :create, :update, or :skip as appropriate."
                             #'anki-editor-note-fields
                             #'anki-editor-note-tags)))))
 
+(defun anki-editor--calc-remote-hash (note-info)
+  "Calculate hash from Anki notesInfo response.
+NOTE-INFO is an alist with keys: noteId, modelName, fields, tags."
+  (let* ((note-id (alist-get 'noteId note-info))
+         (model-name (alist-get 'modelName note-info))
+         (fields-alist (alist-get 'fields note-info))
+         ;; Extract field values sorted by field name for consistency
+         (field-names (sort (mapcar #'car fields-alist) #'string<))
+         (field-values (mapcar (lambda (name)
+                                (alist-get 'value (alist-get name fields-alist)))
+                              field-names))
+         (tags (alist-get 'tags note-info)))
+    (secure-hash
+     'md5
+     (mapconcat #'prin1-to-string
+                (list note-id model-name field-values tags)
+                ""))))
+
 (defun anki-editor--set-note-id (id)
   "Set note-id of anki-editor note at point to ID."
   (unless id
@@ -884,22 +927,66 @@ Return :create, :update, or :skip as appropriate."
   "Set note-hash of anki-editor note at point to HASH."
   (org-set-property anki-editor-prop-note-hash hash))
 
-(defun anki-editor--create-note (note)
-  "Request AnkiConnect for creating NOTE."
-  (thread-last
-    (anki-editor-api-with-multi
-     (anki-editor-api-enqueue 'createDeck
-                              :deck (anki-editor-note-deck note))
-     (anki-editor-api-enqueue 'addNote
-                              :note (anki-editor-api--note note)))
-    (nth 1)
-    (number-to-string)
-    (setf (anki-editor-note-id note))
-    (string-to-number)
-    (anki-editor--set-note-id)))
+(defun anki-editor--set-remote-hash (hash)
+  "Set remote-hash of anki-editor note at point to HASH."
+  (org-set-property anki-editor-prop-remote-hash hash))
 
-(defun anki-editor--update-note (note)
-  "Request AnkiConnect for updating fields, deck, and tags of NOTE."
+(defun anki-editor--check-remote-conflict (note-id stored-remote-hash)
+  "Check if remote note NOTE-ID has changed from STORED-REMOTE-HASH.
+Returns nil if no conflict, or the current remote hash if conflict detected."
+  (when stored-remote-hash
+    (let* ((note-info-response (anki-editor-api-call-result
+                                'notesInfo
+                                :notes (vector note-id)))
+           (note-info (car note-info-response))
+           (current-remote-hash (anki-editor--calc-remote-hash note-info)))
+      (unless (string= current-remote-hash stored-remote-hash)
+        current-remote-hash))))
+
+(defun anki-editor--resolve-conflict (note note-id current-remote-hash)
+  "Resolve conflict for NOTE with NOTE-ID.
+CURRENT-REMOTE-HASH is the hash of the current remote state.
+Returns action symbol: skip or overwrite."
+  (pcase anki-editor-conflict-policy
+    ('skip 'skip)
+    ('overwrite 'overwrite)
+    ('ask
+     (let* ((heading (org-get-heading t t t t))
+            (choice (read-char-choice
+                     (format "Note \"%s\" modified in Anki. [s]kip [o]verwrite: "
+                             heading)
+                     '(?s ?o))))
+       (pcase choice
+         (?s 'skip)
+         (?o 'overwrite))))))
+
+(defun anki-editor--create-note (note)
+  "Request AnkiConnect for creating NOTE.
+Returns 'created on success."
+  (let ((note-id (thread-last
+                   (anki-editor-api-with-multi
+                    (anki-editor-api-enqueue 'createDeck
+                                             :deck (anki-editor-note-deck note))
+                    (anki-editor-api-enqueue 'addNote
+                                             :note (anki-editor-api--note note)))
+                   (nth 1)
+                   (alist-get 'result)
+                   (number-to-string)
+                   (setf (anki-editor-note-id note))
+                   (string-to-number))))
+    (anki-editor--set-note-id note-id)
+    ;; Fetch note info and store remote hash
+    (let* ((note-info-response (anki-editor-api-call-result
+                                'notesInfo
+                                :notes (vector note-id)))
+           (note-info (car note-info-response))
+           (remote-hash (anki-editor--calc-remote-hash note-info)))
+      (anki-editor--set-remote-hash remote-hash))
+    'created))
+
+(defun anki-editor--do-update-note (note)
+  "Request AnkiConnect for updating fields, deck, and tags of NOTE.
+This is the internal function that performs the actual update."
   (let* ((oldnote (caar (anki-editor-api-with-multi
                          (anki-editor-api-enqueue
                           'notesInfo
@@ -931,6 +1018,50 @@ Return :create, :update, or :skip as appropriate."
                                 :notes (list (string-to-number
                                               (anki-editor-note-id note)))
                                 :tags (mapconcat #'identity tagsdel " "))))))
+
+(defun anki-editor--update-note (note)
+  "Request AnkiConnect for updating fields, deck, and tags of NOTE.
+Checks for remote conflicts before updating.
+Returns 'updated if successful, 'skipped if skipped due to conflict."
+  (let* ((note-id (string-to-number (anki-editor-note-id note)))
+         (stored-remote-hash (save-excursion
+                              (goto-char (anki-editor-note-marker note))
+                              (org-entry-get nil anki-editor-prop-remote-hash)))
+         (remote-conflict (anki-editor--check-remote-conflict
+                          note-id stored-remote-hash)))
+    (if remote-conflict
+        ;; Conflict detected
+        (let ((action (save-excursion
+                       (goto-char (anki-editor-note-marker note))
+                       (anki-editor--resolve-conflict note note-id remote-conflict))))
+          (pcase action
+            ('skip
+             (message "Skipped conflicted note: %s" note-id)
+             'skipped)
+            ('overwrite
+             ;; Proceed with update and store new hash
+             (anki-editor--do-update-note note)
+             (let* ((note-info-response (anki-editor-api-call-result
+                                        'notesInfo
+                                        :notes (vector note-id)))
+                    (note-info (car note-info-response))
+                    (new-remote-hash (anki-editor--calc-remote-hash note-info)))
+               (save-excursion
+                 (goto-char (anki-editor-note-marker note))
+                 (anki-editor--set-remote-hash new-remote-hash)))
+             'updated)))
+      ;; No conflict, proceed with update
+      (anki-editor--do-update-note note)
+      ;; Fetch and store new remote hash after successful update
+      (let* ((note-info-response (anki-editor-api-call-result
+                                 'notesInfo
+                                 :notes (vector note-id)))
+             (note-info (car note-info-response))
+             (new-remote-hash (anki-editor--calc-remote-hash note-info)))
+        (save-excursion
+          (goto-char (anki-editor-note-marker note))
+          (anki-editor--set-remote-hash new-remote-hash)))
+      'updated)))
 
 (defun anki-editor--set-failure-reason (reason)
   "Set failure reason to REASON in property drawer at point."
@@ -1485,11 +1616,15 @@ subtree associated with the first heading that has one."
   (interactive)
   (save-excursion
     (anki-editor--goto-nearest-note-type)
-    (let ((note-at-point (anki-editor-note-at-point)))
-      (anki-editor--push-note note-at-point)
-      (anki-editor--set-note-hash
-       (anki-editor--calc-note-hash note-at-point)))
-    (message "Successfully pushed note at point to Anki.")))
+    (let* ((note-at-point (anki-editor-note-at-point))
+           (result (anki-editor--push-note note-at-point)))
+      (when (not (eq result 'skipped))
+        (anki-editor--set-note-hash
+         (anki-editor--calc-note-hash note-at-point)))
+      (pcase result
+        ('created (message "Successfully created note in Anki."))
+        ('updated (message "Successfully updated note in Anki."))
+        ('skipped (message "Skipped note due to conflict."))))))
 
 (defun anki-editor-push-new-notes (&optional scope)
   "Push note entries without ANKI_NOTE_ID in SCOPE to Anki."

@@ -10,6 +10,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     Mimics AnkiConnect server for testing purposes.
     """
 
+    # In-memory storage for notes
+    notes_db = {}
+    next_note_id = 1000
+
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
@@ -37,6 +41,18 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             return {"result": "R0lGODlhAQABAIABAP///wAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==", "error": None}
         elif action == 'version':
             return {'result': 6, 'error': None}
+        elif action == 'createDeck':
+            # Simple deck creation - just return success
+            return {'result': None, 'error': None}
+        elif action == 'changeDeck':
+            # Simple deck change - just return success
+            return {'result': None, 'error': None}
+        elif action == 'addNote':
+            return self.action_add_note(params)
+        elif action == 'updateNoteFields':
+            return self.action_update_note_fields(params)
+        elif action == 'notesInfo':
+            return self.action_notes_info(params)
         elif action == 'multi':
             actions = params['actions']
             result = [self.handle_action(item['action'], item.get('params')) for item in actions]
@@ -53,6 +69,69 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             return ['Front', 'Back']
         else:
             raise ValueError(f"Unknown model name: {model_name}")
+
+    def action_add_note(self, params):
+        """Handle addNote action - creates a new note and returns its ID."""
+        note = params['note']
+        note_id = SimpleHTTPRequestHandler.next_note_id
+        SimpleHTTPRequestHandler.next_note_id += 1
+
+        # Store note in database
+        SimpleHTTPRequestHandler.notes_db[note_id] = {
+            'noteId': note_id,
+            'modelName': note['modelName'],
+            'fields': note['fields'],
+            'tags': note.get('tags', []),
+            'deckName': note['deckName']
+        }
+
+        return {'result': note_id, 'error': None}
+
+    def action_update_note_fields(self, params):
+        """Handle updateNoteFields action - updates existing note fields."""
+        note_id = params['note']['id']
+        fields = params['note']['fields']
+
+        if note_id not in SimpleHTTPRequestHandler.notes_db:
+            return {'result': None, 'error': f'Note with ID {note_id} not found'}
+
+        # Update fields
+        SimpleHTTPRequestHandler.notes_db[note_id]['fields'].update(fields)
+
+        return {'result': None, 'error': None}
+
+    def action_notes_info(self, params):
+        """Handle notesInfo action - returns information about notes."""
+        note_ids = params['notes']
+        result = []
+
+        for note_id in note_ids:
+            if note_id not in SimpleHTTPRequestHandler.notes_db:
+                # Return error for missing note
+                result.append({'error': f'Note {note_id} not found'})
+                continue
+
+            note = SimpleHTTPRequestHandler.notes_db[note_id]
+
+            # Format fields in the structure expected by anki-editor
+            # Each field should have 'value' and 'order'
+            field_names = self.action_model_field_names_response(note['modelName'])
+            formatted_fields = {}
+            for idx, field_name in enumerate(field_names):
+                formatted_fields[field_name] = {
+                    'value': note['fields'].get(field_name, ''),
+                    'order': idx
+                }
+
+            result.append({
+                'noteId': note['noteId'],
+                'modelName': note['modelName'],
+                'fields': formatted_fields,
+                'tags': note['tags'],
+                'cards': []  # Empty cards list for simplicity
+            })
+
+        return {'result': result, 'error': None}
 
 
 def run_server(host='localhost', port=28765):

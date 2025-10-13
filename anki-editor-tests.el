@@ -108,7 +108,10 @@ You can restore the original values by calling
 (defun anki-editor-test--teardown ()
   "Teardown testing."
   (anki-editor-test--restore-variables)
-  (advice-remove 'org-export-get-reference #'anki-editor-test--org-export-get-reference))
+  (advice-remove 'org-export-get-reference #'anki-editor-test--org-export-get-reference)
+  ;; Revert buffer to clean state for next test
+  (when (buffer-modified-p)
+    (revert-buffer t t t)))
 
 (defun anki-editor-test--go-to-headline (title)
   "Go to headline with TITLE."
@@ -529,6 +532,104 @@ Simple note body
                  (string-match "Note with swap two fields as property" (cdr first-field))))
     (should (and (string= "Text" (car second-field))
                  (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
+(anki-editor-deftest test--conflict-detection-create-note-stores-remote-hash ()
+  :doc "Test that creating a note stores ANKI_REMOTE_HASH."
+  :in "test-files/conflict-detection.org"
+  :test
+  (progn
+    (anki-editor-test--go-to-headline "Test Note for Creation")
+    (anki-editor-push-note-at-point)
+    (let ((note-id (org-entry-get nil anki-editor-prop-note-id))
+          (remote-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+      (should note-id)
+      (should remote-hash)
+      (should (string-match-p "^[0-9a-f]\\{32\\}$" remote-hash)))))
+
+(anki-editor-deftest test--conflict-detection-update-without-conflict-updates-hash ()
+  :doc "Test that updating without external changes updates ANKI_REMOTE_HASH."
+  :in "test-files/conflict-detection.org"
+  :test
+  (progn
+    (anki-editor-test--go-to-headline "Test Note for Update")
+    ;; Create initial note
+    (anki-editor-push-note-at-point)
+    (let ((initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+      (should initial-hash)
+      ;; Modify the note locally
+      (re-search-forward "Six")
+      (replace-match "6 (six)")
+      (outline-up-heading 1)
+      ;; Push update
+      (anki-editor-push-note-at-point)
+      (let ((updated-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+        (should updated-hash)
+        (should-not (string= initial-hash updated-hash))))))
+
+(anki-editor-deftest test--conflict-detection-detect-external-modification-skip ()
+  :doc "Test that external modifications are detected with skip policy."
+  :in "test-files/conflict-detection.org"
+  :test
+  (let ((original-policy anki-editor-conflict-policy))
+    (unwind-protect
+        (progn
+          (anki-editor-test--go-to-headline "Test Note for External Modification")
+          ;; Create initial note
+          (anki-editor-push-note-at-point)
+          (let ((note-id (string-to-number (org-entry-get nil anki-editor-prop-note-id)))
+                (initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+            (should note-id)
+            (should initial-hash)
+            ;; Simulate external modification via API
+            (anki-editor-api-call
+             'updateNoteFields
+             :note (list :id note-id
+                        :fields (list :Back "10 (modified externally)")))
+            ;; Set policy to skip
+            (setq anki-editor-conflict-policy 'skip)
+            ;; Modify locally
+            (re-search-forward "Ten")
+            (replace-match "10")
+            (outline-up-heading 1)
+            ;; Push should skip due to conflict
+            (anki-editor-push-note-at-point)
+            ;; Hash should be unchanged since update was skipped
+            (let ((current-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+              (should (string= initial-hash current-hash)))))
+      (setq anki-editor-conflict-policy original-policy))))
+
+(anki-editor-deftest test--conflict-detection-overwrite-policy-updates-hash ()
+  :doc "Test that overwrite policy updates ANKI_REMOTE_HASH after overwriting."
+  :in "test-files/conflict-detection.org"
+  :test
+  (let ((original-policy anki-editor-conflict-policy))
+    (unwind-protect
+        (progn
+          (anki-editor-test--go-to-headline "Test Note for Overwrite")
+          ;; Create initial note
+          (anki-editor-push-note-at-point)
+          (let ((note-id (string-to-number (org-entry-get nil anki-editor-prop-note-id)))
+                (initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+            (should note-id)
+            (should initial-hash)
+            ;; Simulate external modification via API
+            (anki-editor-api-call
+             'updateNoteFields
+             :note (list :id note-id
+                        :fields (list :Back "External modification")))
+            ;; Set policy to overwrite
+            (setq anki-editor-conflict-policy 'overwrite)
+            ;; Modify locally
+            (re-search-forward "Fourteen")
+            (replace-match "14")
+            (outline-up-heading 1)
+            ;; Push should overwrite
+            (anki-editor-push-note-at-point)
+            ;; Hash should be updated to reflect new state
+            (let ((new-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+              (should new-hash)
+              (should-not (string= initial-hash new-hash)))))
+      (setq anki-editor-conflict-policy original-policy))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
