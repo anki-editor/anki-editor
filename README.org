@@ -63,7 +63,7 @@ If you're using [[https://github.com/radian-software/straight.el][straight.el]] 
 
 *** With Doom Emacs
 
-If you use Doom Emacs, add the followings to ~packages.el~ and ~config.el~ respectively.
+If you use Doom Emacs, add the following to ~packages.el~ and ~config.el~ respectively.
 
 #+begin_src emacs-lisp
   (package! anki-editor
@@ -72,6 +72,22 @@ If you use Doom Emacs, add the followings to ~packages.el~ and ~config.el~ respe
 
 #+begin_src emacs-lisp
   (use-package! anki-editor)
+#+end_src
+
+*** With Spacemacs
+
+If you use Spacemacs, you can add ~anki-editor~ to ~dotspacemacs-additional-packages~:
+
+#+begin_src emacs-lisp
+  (setq-default
+   ;; …
+   dotspacemacs-additional-packages
+   '((anki-editor
+      :location (recipe
+                 :fetcher github
+                 :repo "anki-editor/anki-editor")))
+   ;; …
+   )
 #+end_src
 
 ** Usage
