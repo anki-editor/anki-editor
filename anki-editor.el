@@ -1238,7 +1238,9 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
            (has-content (not (string= "" (string-trim content-before-subheading)))))
       (cond ((equal 0 (length fields-missing))
              (when (< 0 (length fields-extra))
-               (user-error "Failed to map all named fields")))
+               (user-error (format "Failed to map all named fields for note: %s. Extra fields: %s"
+                                   heading
+                                   (mapconcat #'identity fields-extra ", ")))))
             ((equal 1 (length fields-missing))
              (push (cons (car fields-missing)
                          (if (and (not has-content) (not has-extra))
