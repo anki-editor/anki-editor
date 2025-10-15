@@ -94,6 +94,15 @@ You can restore the original values by calling
 
 (defun anki-editor-test--setup ()
   "Setup testing."
+  ;; Reset test-files/* from git to ensure clean state
+  (let ((file-path (buffer-file-name)))
+    (when (and file-path
+               (file-exists-p file-path)
+               (string-match-p "/test-files/" file-path)
+               ;; Check if file is tracked by git
+               (= 0 (call-process "git" nil nil nil "ls-files" "--error-unmatch" file-path)))
+      (shell-command (format "git checkout %s" (shell-quote-argument file-path)))
+      (revert-buffer t t t)))
   (anki-editor-test--patch-variables
    '((anki-editor-api-port . 28765)
      (anki-editor-prepend-heading . nil)
@@ -108,7 +117,11 @@ You can restore the original values by calling
 (defun anki-editor-test--teardown ()
   "Teardown testing."
   (anki-editor-test--restore-variables)
-  (advice-remove 'org-export-get-reference #'anki-editor-test--org-export-get-reference))
+  (advice-remove 'org-export-get-reference #'anki-editor-test--org-export-get-reference)
+  ;; Mark buffer as unmodified to prevent save-on-kill
+  (set-buffer-modified-p nil)
+  ;; Kill buffer so next test gets fresh copy
+  (kill-buffer (current-buffer)))
 
 (defun anki-editor-test--go-to-headline (title)
   "Go to headline with TITLE."
@@ -529,6 +542,231 @@ Simple note body
                  (string-match "Note with swap two fields as property" (cdr first-field))))
     (should (and (string= "Text" (car second-field))
                  (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
+(anki-editor-deftest test--conflict-detection-create-note-stores-remote-hash ()
+  :doc "Test that creating a note stores ANKI_REMOTE_HASH."
+  :in "test-files/conflict-detection.org"
+  :test
+  (progn
+    (anki-editor-test--go-to-headline "Test Note for Creation")
+    (anki-editor-push-note-at-point)
+    (let ((note-id (org-entry-get nil anki-editor-prop-note-id))
+          (remote-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+      (should note-id)
+      (should remote-hash)
+      (should (string-match-p "^[0-9a-f]\\{32\\}$" remote-hash)))))
+
+(anki-editor-deftest test--conflict-detection-update-without-conflict-updates-hash ()
+  :doc "Test that updating without external changes updates ANKI_REMOTE_HASH."
+  :in "test-files/conflict-detection.org"
+  :test
+  (progn
+    (anki-editor-test--go-to-headline "Test Note for Update")
+    ;; Create initial note
+    (anki-editor-push-note-at-point)
+    (let ((initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+      (should initial-hash)
+      ;; Modify the note locally
+      (re-search-forward "Six")
+      (replace-match "6 (six)")
+      (outline-up-heading 1)
+      ;; Push update
+      (anki-editor-push-note-at-point)
+      (let ((updated-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+        (should updated-hash)
+        (should-not (string= initial-hash updated-hash))))))
+
+(anki-editor-deftest test--conflict-detection-detect-external-modification-skip ()
+  :doc "Test that external modifications are detected with skip policy."
+  :in "test-files/conflict-detection.org"
+  :test
+  (let ((original-policy anki-editor-conflict-policy))
+    (unwind-protect
+        (progn
+          (anki-editor-test--go-to-headline "Test Note for External Modification")
+          ;; Create initial note
+          (anki-editor-push-note-at-point)
+          (let ((note-id (string-to-number (org-entry-get nil anki-editor-prop-note-id)))
+                (initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+            (should note-id)
+            (should initial-hash)
+            ;; Simulate external modification via API
+            (anki-editor-api-call
+             'updateNoteFields
+             :note (list :id note-id
+                        :fields (list :Back "10 (modified externally)")))
+            ;; Set policy to skip
+            (setq anki-editor-conflict-policy 'skip)
+            ;; Modify locally
+            (re-search-forward "Ten")
+            (replace-match "10")
+            (outline-up-heading 1)
+            ;; Push should skip due to conflict
+            (anki-editor-push-note-at-point)
+            ;; Hash should be unchanged since update was skipped
+            (let ((current-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+              (should (string= initial-hash current-hash)))))
+      (setq anki-editor-conflict-policy original-policy))))
+
+(anki-editor-deftest test--conflict-detection-overwrite-policy-updates-hash ()
+  :doc "Test that overwrite policy updates ANKI_REMOTE_HASH after overwriting."
+  :in "test-files/conflict-detection.org"
+  :test
+  (let ((original-policy anki-editor-conflict-policy))
+    (unwind-protect
+        (progn
+          (anki-editor-test--go-to-headline "Test Note for Overwrite")
+          ;; Create initial note
+          (anki-editor-push-note-at-point)
+          (let ((note-id (string-to-number (org-entry-get nil anki-editor-prop-note-id)))
+                (initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+            (should note-id)
+            (should initial-hash)
+            ;; Simulate external modification via API
+            (anki-editor-api-call
+             'updateNoteFields
+             :note (list :id note-id
+                        :fields (list :Back "External modification")))
+            ;; Set policy to overwrite
+            (setq anki-editor-conflict-policy 'overwrite)
+            ;; Modify locally
+            (re-search-forward "Fourteen")
+            (replace-match "14")
+            (outline-up-heading 1)
+            ;; Push should overwrite
+            (anki-editor-push-note-at-point)
+            ;; Hash should be updated to reflect new state
+            (let ((new-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+              (should new-hash)
+              (should-not (string= initial-hash new-hash)))))
+      (setq anki-editor-conflict-policy original-policy))))
+
+(anki-editor-deftest test--batch-conflict-detection-skip-policy ()
+  :doc "Test batch processing with conflict detection and skip policy."
+  :in "test-files/conflict-detection.org"
+  :test
+  (let ((original-policy anki-editor-conflict-policy))
+    (unwind-protect
+        (progn
+          ;; Set policy to overwrite initially to avoid prompts during setup
+          (setq anki-editor-conflict-policy 'overwrite)
+          ;; Create all notes initially
+          (anki-editor-push-notes)
+          ;; Get note IDs
+          (anki-editor-test--go-to-headline "Test Note for Creation")
+          (let ((note1-id (string-to-number (org-entry-get nil anki-editor-prop-note-id)))
+                (note1-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+            (anki-editor-test--go-to-headline "Test Note for Update")
+            (let ((note2-id (string-to-number (org-entry-get nil anki-editor-prop-note-id))))
+              (should note1-id)
+              (should note2-id)
+              ;; Externally modify note1
+              (anki-editor-api-call
+               'updateNoteFields
+               :note (list :id note1-id
+                          :fields (list :Front "Modified externally"
+                                       :Back "External change")))
+              ;; Modify both notes locally
+              (anki-editor-test--go-to-headline "Test Note for Creation")
+              (re-search-forward "Four")
+              (replace-match "4")
+              (anki-editor-test--go-to-headline "Test Note for Update")
+              (re-search-forward "Six")
+              (replace-match "6")
+              ;; Push with skip policy
+              (setq anki-editor-conflict-policy 'skip)
+              (anki-editor-push-notes)
+              ;; Check that note1 has ANKI_FAILURE_REASON
+              (anki-editor-test--go-to-headline "Test Note for Creation")
+              (let ((failure-reason (org-entry-get nil anki-editor-prop-failure-reason))
+                    (hash-after (org-entry-get nil anki-editor-prop-remote-hash)))
+                (should failure-reason)
+                (should (string-match-p "Conflict" failure-reason))
+                ;; Hash should be unchanged since update was skipped
+                (should (string= note1-hash hash-after)))
+              ;; Check that note2 has no failure reason
+              (anki-editor-test--go-to-headline "Test Note for Update")
+              (let ((failure-reason (org-entry-get nil anki-editor-prop-failure-reason)))
+                (should-not failure-reason)))))
+      (setq anki-editor-conflict-policy original-policy))))
+
+(anki-editor-deftest test--batch-conflict-detection-overwrite-policy ()
+  :doc "Test batch processing with conflict detection and overwrite policy."
+  :in "test-files/conflict-detection.org"
+  :test
+  (let ((original-policy anki-editor-conflict-policy))
+    (unwind-protect
+        (progn
+          ;; Set policy to overwrite from the start to avoid prompts
+          (setq anki-editor-conflict-policy 'overwrite)
+          ;; Create note initially
+          (anki-editor-test--go-to-headline "Test Note for Overwrite")
+          (anki-editor-push-note-at-point)
+          (let ((note-id (string-to-number (org-entry-get nil anki-editor-prop-note-id)))
+                (initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+            (should note-id)
+            (should initial-hash)
+            ;; Externally modify note
+            (anki-editor-api-call
+             'updateNoteFields
+             :note (list :id note-id
+                        :fields (list :Back "External modification")))
+            ;; Modify locally
+            (re-search-forward "Fourteen")
+            (replace-match "14")
+            ;; Push with overwrite policy
+            (setq anki-editor-conflict-policy 'overwrite)
+            (anki-editor-push-notes)
+            ;; Navigate back to headline to check properties
+            (anki-editor-test--go-to-headline "Test Note for Overwrite")
+            (let ((failure-reason (org-entry-get nil anki-editor-prop-failure-reason))
+                  (new-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+              (should-not failure-reason)
+              (should new-hash)
+              (should-not (string= initial-hash new-hash)))))
+      (setq anki-editor-conflict-policy original-policy))))
+
+(anki-editor-deftest test--batch-conflict-retry-failed-notes ()
+  :doc "Test retry-failed-notes after batch conflict detection."
+  :in "test-files/conflict-detection.org"
+  :test
+  (let ((original-policy anki-editor-conflict-policy))
+    (unwind-protect
+        (progn
+          ;; Create note initially
+          (anki-editor-test--go-to-headline "Test Note for External Modification")
+          (anki-editor-push-note-at-point)
+          (let ((note-id (string-to-number (org-entry-get nil anki-editor-prop-note-id)))
+                (initial-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+            (should note-id)
+            ;; Externally modify note
+            (anki-editor-api-call
+             'updateNoteFields
+             :note (list :id note-id
+                        :fields (list :Back "External modification")))
+            ;; Modify locally
+            (re-search-forward "Ten")
+            (replace-match "10")
+            ;; Push with skip policy - should set failure reason
+            (setq anki-editor-conflict-policy 'skip)
+            (anki-editor-push-notes)
+            ;; Navigate back to headline to check properties
+            (anki-editor-test--go-to-headline "Test Note for External Modification")
+            (let ((failure-reason (org-entry-get nil anki-editor-prop-failure-reason)))
+              (should failure-reason)
+              (should (string-match-p "Conflict" failure-reason)))
+            ;; Retry with overwrite policy
+            (setq anki-editor-conflict-policy 'overwrite)
+            (anki-editor-retry-failed-notes)
+            ;; Navigate back to headline to check properties
+            (anki-editor-test--go-to-headline "Test Note for External Modification")
+            ;; Check that failure reason is cleared
+            (let ((failure-reason (org-entry-get nil anki-editor-prop-failure-reason))
+                  (new-hash (org-entry-get nil anki-editor-prop-remote-hash)))
+              (should-not failure-reason)
+              (should new-hash)
+              (should-not (string= initial-hash new-hash)))))
+      (setq anki-editor-conflict-policy original-policy))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here

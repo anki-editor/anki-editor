@@ -1,0 +1,45 @@
+#+PROPERTY: ANKI_DECK Test
+
+* Test Note for Creation
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+** Front
+What is 2+2?
+
+** Back
+Four
+
+* Test Note for Update
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+** Front
+What is 3+3?
+
+** Back
+Six
+
+* Test Note for External Modification
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+** Front
+What is 5+5?
+
+** Back
+Ten
+
+* Test Note for Overwrite
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:END:
+
+** Front
+What is 7+7?
+
+** Back
+Fourteen
