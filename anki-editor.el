@@ -1070,6 +1070,7 @@ and else from variable `anki-editor-prepend-heading'."
                                           level
                                           prepend-heading
                                           field-swap))
+         (fields (anki-editor--expand-attachment-links fields))
          ;; Sorting fields not necessary for Anki, but it removes
          ;; randomness which breaks our tests.
          (fields (sort fields (lambda (a b) (string< (car a) (car b))))))
@@ -1082,6 +1083,30 @@ and else from variable `anki-editor-prepend-heading'."
                            :fields fields
                            :hash hash
                            :marker (point-marker))))
+
+(defun anki-editor--expand-attachment-links (fields)
+  "Expand possible \"attachment:\" hyperlinks in the FIELDS alist.
+
+The exporter itself does not process links to attachments. They are normally
+processed with `org-attach-expand-links' called as a hook before the exporter
+sees the buffer content. It is made work on an org-mode buffer, not on a string,
+hence the need to shadow the `org-attach-dir' function."
+  (let* ((attach-dir (org-attach-dir))
+         (expand-links (lambda (str)
+                         (cl-letf (((symbol-function 'org-attach-dir)
+                                    (lambda () attach-dir)))
+                           ;; Reusing single tmp buffer for all fields
+                           (erase-buffer)
+                           (insert str)
+                           (goto-char (point-min))
+                           (org-attach-expand-links nil)
+                           (buffer-string)))))
+    (if (not attach-dir)
+        fields
+      (with-temp-buffer
+        (org-mode)
+        (cl-loop for (name . value) in fields
+                 collect (cons name (funcall expand-links value)))))))
 
 (defun anki-editor--get-tags ()
   "Return list of tags of org entry at point."
