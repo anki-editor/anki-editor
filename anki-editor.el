@@ -1152,7 +1152,8 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 (defun anki-editor--property-fields (fields)
   "Extract Anki FIELDS from entry properties."
   (cl-loop for field in fields
-           for property = (concat anki-editor-prop-field-prefix (upcase field))
+           for property = (concat anki-editor-prop-field-prefix
+                                  (string-replace " " "_" (upcase field)))
            for property-value = (org-entry-get-with-inheritance property)
            when property-value
            collect (cons field property-value)))
