@@ -284,19 +284,18 @@ Simple note body
      (lambda ()
        ;; Only entries which have ANKI_NOTE_TYPE
        (when (org-entry-get (point) "ANKI_NOTE_TYPE")
-         (unwind-protect
-             (let ((note-at-point nil)
-                   (headline nil)
-                   (expected-note nil))
-               (setq headline (org-entry-get (point) "ITEM"))
-               (setq note-at-point (anki-editor-note-at-point))
-               (setf (anki-editor-note-fields note-at-point)
-                     (anki-editor--export-fields
-                      (anki-editor-note-fields note-at-point)))
-               (setq expected-note (cdr (assoc headline test-items-alist)))
-               (setf (anki-editor-note-marker expected-note)
-                     (point-marker))
-               (should (equal note-at-point expected-note)))))))))
+         (let ((note-at-point nil)
+               (headline nil)
+               (expected-note nil))
+           (setq headline (org-entry-get (point) "ITEM"))
+           (setq note-at-point (anki-editor-note-at-point))
+           (setf (anki-editor-note-fields note-at-point)
+                 (anki-editor--export-fields
+                  (anki-editor-note-fields note-at-point)))
+           (setq expected-note (cdr (assoc headline test-items-alist)))
+           (setf (anki-editor-note-marker expected-note)
+                 (point-marker))
+           (should (equal note-at-point expected-note))))))))
 
 (anki-editor-deftest test--anki-editor--map-fields-cloze-default ()
   :doc "Test `anki-editor--map-fields' should process default note."
@@ -529,6 +528,21 @@ Simple note body
                  (string-match "Note with swap two fields as property" (cdr first-field))))
     (should (and (string= "Text" (car second-field))
                  (string-match "This is the {{c1::content}}." (cdr second-field))))))
+
+(anki-editor-deftest test--anki-editor--no-subheading-fields ()
+  :doc "Test `anki-editor-no-subheading-fields'."
+  :in "test-files/test.org"
+  :test
+  (let* ((note (progn
+                 (anki-editor-test--go-to-headline "Quick note in a higher level heading")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (first-field (nth 0 fields))
+         (second-field (nth 1 fields)))
+    (should (and (string= "Back Extra" (car first-field))
+                 (string-match "Lorem ipsum." (cdr first-field))))
+    (should (and (string= "Text" (car second-field))
+                 (string-match "This is {{c1::fast}}" (cdr second-field))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here

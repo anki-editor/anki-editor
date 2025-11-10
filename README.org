@@ -152,6 +152,18 @@ If you use Spacemacs, you can add ~anki-editor~ to ~dotspacemacs-additional-pack
      ,** Front
         Notice that property fields will override subheading fields.
         This block will be skipped
+
+     ,* Notes can be nested and intermixed with regular content
+        :PROPERTIES:
+        :ANKI_NOTE_TYPE: Basic
+        :ANKI_FIELD_FRONT: Can you have a note embedded in a higher level heading?
+        :ANKI_NO_SUBHEADING_FIELDS: t
+        :END:
+
+        Yes, =anki-editor= can be told to not interpret subheadings as fields at all.
+
+     ,** More on this topic
+        This will not be considered as a field of the above note. It can be also turned into a note on its own.
    #+END_SRC
 
    - Anki deck is provided by ~ANKI_DECK~ property.  This property is
