@@ -670,6 +670,7 @@ format the string, see `anki-editor--export-string'."
 (defconst anki-editor-prop-failure-reason "ANKI_FAILURE_REASON")
 (defconst anki-editor-prop-default-note-type "ANKI_DEFAULT_NOTE_TYPE")
 (defconst anki-editor-prop-swap-two-fields "ANKI_SWAP_TWO_FIELDS")
+(defconst anki-editor-prop-no-subheading-fields "ANKI_NO_SUBHEADING_FIELDS")
 (defconst anki-editor-org-tag-regexp "^\\([[:alnum:]_@#%]+\\)+$")
 
 (cl-defstruct anki-editor-note
@@ -1056,7 +1057,9 @@ and else from variable `anki-editor-prepend-heading'."
          (level (org-current-level))
          (content-before-subheading
           (anki-editor--note-contents-before-subheading))
-         (subheading-fields (anki-editor--build-fields))
+         (no-subheading-fields (org-entry-get nil anki-editor-prop-no-subheading-fields))
+         (subheading-fields (and (not no-subheading-fields)
+                                 (anki-editor--build-fields)))
          (field-swap
           (if (member note-type
                       (or (anki-editor--entry-get-multivalued-property-with-inheritance
