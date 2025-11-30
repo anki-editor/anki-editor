@@ -1532,38 +1532,6 @@ With PREFIX also delete it from Org."
         (kill-region nil nil t)
         (message "Deleted note at point from Org")))))
 
-(defun anki-editor-reset-for-new-collection (&optional scope)
-  "Clear Anki note IDs and hashes to push notes to a new collection.
-
-This removes the ANKI_NOTE_ID and ANKI_NOTE_HASH properties from all
-notes in SCOPE, allowing them to be pushed to a new Anki collection as
-new notes.
-
-If SCOPE is not specified, the following rules are applied:
-- If there's an active region, it will be set to `region'
-- If called with prefix `C-u', it will be set to `tree'
-- If called with prefix double `C-u', it will be set to `file'
-- If called with prefix triple `C-u', will be set to `agenda'"
-  (interactive (list (cond
-                      ((region-active-p) 'region)
-                      ((equal current-prefix-arg '(4)) 'tree)
-                      ((equal current-prefix-arg '(16)) 'file)
-                      ((equal current-prefix-arg '(64)) 'agenda)
-                      (t nil))))
-  (when (yes-or-no-p
-         (format "Remove all %s and %s properties? "
-                 anki-editor-prop-note-id
-                 anki-editor-prop-note-hash))
-    (let ((count 0))
-      (anki-editor-map-note-entries
-       (lambda ()
-         (org-entry-delete nil anki-editor-prop-note-id)
-         (org-entry-delete nil anki-editor-prop-note-hash)
-         (cl-incf count))
-       nil
-       scope)
-      (message "Cleared %d note(s) for new collection" count))))
-
 (defun anki-editor-insert-note (&optional prefix note-type)
   "Insert a note interactively.
 
