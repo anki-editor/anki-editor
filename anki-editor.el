@@ -209,6 +209,20 @@ structure."
   :type '(repeat (cons string (repeat (cons string string))))
   :group 'anki-editor)
 
+(defcustom anki-editor-optional-fields nil
+  "Alist of optional fields for each note type.
+For example, setting the value
+
+  \\='((\"Basic\" . (\"Reference\")))
+
+to this custom variable, registers the field `Reference' as an optional field
+for the `Basic' note type. An optional field may be omitted and neither the
+heading nor the content before the first subheading will be considered as a
+value for such field. It must be specified explicitly either with a subheading
+or a property."
+  :type '(repeat (cons string (repeat string)))
+  :group 'anki-editor)
+
 (defcustom anki-editor-force-update nil
   "Whether to force updates to notes.
 That is, ignore the generated hash and push the note to Anki regardless
@@ -1234,6 +1248,9 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
     (let* ((model-fields (alist-get
                           note-type anki-editor--model-fields
                           nil nil #'string=))
+           (optional-fields (alist-get
+                             note-type anki-editor-optional-fields
+                             nil nil #'string=))
            (field-alias (alist-get note-type anki-editor-field-alias
                                    nil nil #'string=))
            (property-fields (anki-editor--property-fields model-fields))
@@ -1255,13 +1272,22 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
            (fields-missing (cl-set-difference
                             model-fields (mapcar #'car named-fields)
                             :test #'string=))
+           (optional-fields-missing (cl-intersection
+                                    fields-missing optional-fields
+                                    :test #'string=))
+           (fields-missing (cl-set-difference
+                            fields-missing optional-fields
+                            :test #'string=))
            (fields-extra (cl-set-difference
                           (mapcar #'car named-fields) model-fields
                           :test #'string=))
-           (fields (cl-loop for f in fields-matching
-                            collect (cons f (alist-get
-                                             f named-fields
-                                             nil nil #'string=))))
+           (fields (append
+                    (cl-loop for f in fields-matching
+                             collect (cons f (alist-get
+                                              f named-fields
+                                              nil nil #'string=)))
+                    (cl-loop for f in optional-fields-missing
+                             collect (cons f ""))))
            (heading-format anki-editor-prepend-heading-format)
            (has-extra (not (seq-empty-p fields-extra)))
            (has-content (not (string= "" (string-trim content-before-subheading)))))
@@ -1297,7 +1323,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                    fields))
             ((< 2 (length fields-missing))
              (user-error (concat "Cannot map note fields: "
-                                 "more than two fields missing"))))
+                                 "more than two mandatory fields missing"))))
       fields)))
 
 (defun anki-editor--concat-fields (field-names field-alist level)
