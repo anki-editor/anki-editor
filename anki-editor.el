@@ -455,7 +455,8 @@ The result is the path to the newly stored media file."
    :parent 'html
    :name 'anki-html
    :transcoders '((latex-fragment . anki-editor--ox-latex)
-                  (latex-environment . anki-editor--ox-latex))))
+                  (latex-environment . anki-editor--ox-latex)
+                  (link . anki-editor--ox-html-link-transcoder))))
 
 (defconst anki-editor--ox-export-ext-plist
   '(:with-toc nil :with-properties nil :with-planning nil :anki-editor-mode t))
@@ -554,6 +555,13 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
     (if anki-editor-break-consecutive-braces-in-latex
         (replace-regexp-in-string "}}" "} } " code)
       code)))
+
+(defun anki-editor--ox-html-link-transcoder (link contents info)
+  "Transcode LINK element to Anki-compatible HTML.
+CONTENTS is the link description.  INFO is a plist holding contextual info.
+For file links to audio files, produces [sound:filename] format.
+For other file links, stores the file and produces appropriate HTML."
+  (anki-editor--ox-html-link #'org-html-link link contents info))
 
 (defun anki-editor--ox-html-link (oldfun link desc info)
   "Export LINK and its target.
