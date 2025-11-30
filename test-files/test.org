@@ -85,3 +85,17 @@ Note with file link
 :END:
 ** Text
 Lorem {{c1::lorem}}.
+
+* Quick note in a higher level heading
+:PROPERTIES:
+:ANKI_DECK: Tests
+:ANKI_NOTE_TYPE: Cloze
+:ANKI_FIELD_TEXT: This is {{c1::fast}}
+:ANKI_NO_SUBHEADING_FIELDS: t
+:END:
+Lorem ipsum.
+
+** Ignored
+Foo
+** Ignored as well
+Bar
