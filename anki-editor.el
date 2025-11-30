@@ -1405,7 +1405,10 @@ determine the scope:
 See doc string of `org-map-entries' for what these different options mean.
 
 If one fails, the failure reason will be set in property drawer
-of that heading."
+of that heading.
+
+Unchanged notes are skipped unless `anki-editor-force-update' is
+non-nil, which see."
   (interactive (list (cond
                       ((region-active-p) 'region)
                       ((equal current-prefix-arg '(4)) 'tree)
@@ -1510,7 +1513,9 @@ beginning of the current heading."
 
 If point is not at a heading with an `ANKI_NOTE_TYPE' property,
 go up one heading at a time, until heading level 1, and push the
-subtree associated with the first heading that has one."
+subtree associated with the first heading that has one.
+
+Unlike `anki-editor-push-notes', always pushes unconditionally."
   (interactive)
   (save-excursion
     (anki-editor--goto-nearest-note-type)
@@ -1521,7 +1526,8 @@ subtree associated with the first heading that has one."
     (message "Successfully pushed note at point to Anki.")))
 
 (defun anki-editor-push-new-notes (&optional scope)
-  "Push note entries without ANKI_NOTE_ID in SCOPE to Anki."
+  "Push note entries without ANKI_NOTE_ID in SCOPE to Anki.
+Calls `anki-editor-push-notes', which see."
   (interactive)
   (anki-editor-push-notes scope (concat anki-editor-prop-note-id "=\"\"")))
 
