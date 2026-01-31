@@ -216,6 +216,11 @@ of whether it changed or not."
   :type 'boolean
   :group 'anki-editor)
 
+(defcustom anki-editor-tylax-location "t2l"
+  "t2l executable for Typst math (PATH/full; \\\"\\\" disable)."
+  :type 'string
+  :group 'anki-editor)
+
 ;;; AnkiConnect
 
 (defconst anki-editor-api-version 6)
@@ -247,11 +252,11 @@ The api is borrowed from request.el."
         (unless (ignore-error json-end-of-file
                   (with-current-buffer responsebuf
                     (apply #'call-process "curl" nil t nil (list
-                                                        url
-                                                        "--silent"
-                                                        "-X" type
-                                                        "--data-binary"
-                                                        (concat "@" tempfile)))
+                                                            url
+                                                            "--silent"
+                                                            "-X" type
+                                                            "--data-binary"
+                                                            (concat "@" tempfile)))
 
                     (goto-char (point-min))
                     (when success
@@ -675,6 +680,7 @@ format the string, see `anki-editor--export-string'."
 (defconst anki-editor-prop-default-note-type "ANKI_DEFAULT_NOTE_TYPE")
 (defconst anki-editor-prop-swap-two-fields "ANKI_SWAP_TWO_FIELDS")
 (defconst anki-editor-prop-no-subheading-fields "ANKI_NO_SUBHEADING_FIELDS")
+(defconst anki-editor-prop-math-type "ANKI_MATH_TYPE")
 (defconst anki-editor-org-tag-regexp "^\\([[:alnum:]_@#%]+\\)+$")
 
 (cl-defstruct anki-editor-note
@@ -785,6 +791,14 @@ Return :create, :update, or :skip as appropriate."
   (set-buffer (marker-buffer (anki-editor-note-marker note)))
   (goto-char (anki-editor-note-marker note))
   (anki-editor--clear-failure-reason)
+  (when (string= (org-entry-get nil anki-editor-prop-math-type "") "typst")
+    (condition-case err
+        (setf (anki-editor-note-fields note)
+              (anki-editor--preprocess-typst-fields (anki-editor-note-fields note)))
+      (error
+       (anki-editor--set-failure-reason
+        (format "Typst math conversion error: %s" (error-message-string err)))
+       :skip)))
   (if (null (anki-editor-note-id note))
       (progn
         (anki-editor--enqueue-create-note note)
@@ -941,6 +955,50 @@ Return :create, :update, or :skip as appropriate."
   "Set failure reason to REASON in property drawer at point."
   (org-entry-put nil anki-editor-prop-failure-reason reason))
 
+(defun anki-editor--preprocess-typst-field (raw field-name)
+  "Convert Typst math syntax to LaTeX in RAW field using t2l.
+FIELD-NAME is used for error reporting.  Returns processed text.
+
+If the string starts with '# raw', return the string as is without conversion.
+
+Escaped dollar signs (\\$) and hash signs (\\#) are converted to T2L-DOLLAR
+and T2L-HASH before t2l processing, then restored to $ and # after conversion
+to distinguish literal characters from math and Typst syntax."
+  ;; Skip Typst conversion if field starts with "# raw"
+  (if (and (stringp raw) (string-prefix-p "# raw" raw))
+      raw
+    (let* ((t2l-cmd (or anki-editor-tylax-location "t2l"))
+           (full-cmd (executable-find t2l-cmd))
+           ;; Replace escaped dollars and hashes before t2l
+           (text-with-dollars (replace-regexp-in-string "\\\\\\$" "T2L-DOLLAR" raw))
+           (text-with-placeholders (replace-regexp-in-string "\\\\#" "T2L-HASH" text-with-dollars)))
+      (unless full-cmd
+        (error "t2l not found: set `anki-editor-tylax-location'"))
+      (with-temp-buffer
+        (insert text-with-placeholders)
+        (let ((exit-code (call-process-region (point-min) (point-max)
+                                              full-cmd
+                                              t    ; delete input region
+                                              t    ; output to current buffer
+                                              nil  ; don't display errors
+                                              "-d" "t2l" "--strict")))
+          (unless (eq exit-code 0)
+            (error "Typst conversion failed for field '%s' (exit code %s)" field-name exit-code))
+          (let ((output (buffer-string)))
+            (when (string-blank-p output)
+              (error "Typst conversion returned empty output for field '%s'" field-name))
+            ;; Restore T2L-HASH and T2L-DOLLAR to literal characters
+            (let ((with-hashes (replace-regexp-in-string "T2L-HASH" "#" output)))
+              (replace-regexp-in-string "T2L-DOLLAR" "$" with-hashes))))))))
+
+(defun anki-editor--preprocess-typst-fields (fields)
+  "Convert Typst math syntax to LaTeX in all note fields.
+FIELDS is an alist of (field-name . content).  Returns a new alist
+with field names unchanged and content converted using t2l."
+  (mapcar (lambda (cell)
+            (cons (car cell) (anki-editor--preprocess-typst-field (cdr cell) (car cell))))
+          fields))
+
 (defun anki-editor--clear-failure-reason ()
   "Clear failure reason in property drawer at point."
   (org-entry-delete nil anki-editor-prop-failure-reason))
@@ -956,6 +1014,7 @@ Return :create, :update, or :skip as appropriate."
      (anki-editor-all-tags))
     ((pred (string= anki-editor-prop-default-note-type))
      (anki-editor-note-types))
+    ((pred (string= anki-editor-prop-math-type)) (list "" "typst"))
     (_ nil)))
 
 (defun anki-editor-is-valid-org-tag (tag)
@@ -1206,7 +1265,7 @@ Leading whitespace, drawers, and planning content is skipped."
                    for nextelem = (progn (goto-char eoh)
                                          (org-element-at-point))
                    while (not (or (memq (org-element-type nextelem) '(headline))
-                                (eobp)))
+                                  (eobp)))
                    finally return (and eoh
                                        (if (eobp)
                                            (org-element-property :end nextelem)

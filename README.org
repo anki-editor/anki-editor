@@ -210,6 +210,32 @@ This field will be treated as RAW text.
 It will be sent to Anki exactly as written.
 #+END_SRC
 
+**** Typst Math Support
+
+anki-editor can convert Typst math syntax to LaTeX for notes that use the Anki LaTeX note type or cards with MathJax rendering.
+This allows you to write mathematical expressions in Typst syntax.
+
+*Prerequisites:*
+Install the =t2l= (Typst-to-LaTeX) executable from [[https://github.com/scipenai/tylax][github.com/scipenai/tylax]]
+and ensure it is available in your PATH or configure the =anki-editor-tylax-location= variable.
+
+*Configuration:*
+The =anki-editor-tylax-location= variable controls the path to the =t2l= executable.
+The default value is ="t2l"=, which expects the executable to be in your PATH. You can set it to a full path if needed.
+
+*Enabling Typst Math:*
+Add the property =:ANKI_MATH_TYPE: typst= to your note's property drawer (alongside =ANKI_NOTE_TYPE=).
+When this property is set, all fields in that note will have Typst math syntax converted to LaTeX before being sent to Anki.
+
+*Math Syntax:*
+- Inline math: =$formula$= (no spaces immediately after the opening =$= or before the closing =$=)
+- Display math: =$ formula $= (spaces between the =$= delimiters and the formula content)
+
+*Escaping Special Characters:*
+To include literal dollar or hash signs in your text, escape them with a backslash: =\$= and =\#=.
+The backslashes will be removed and the characters will be exported as regular characters,
+not as Typst math or directive syntax.
+
 *** Commands
 To see the docs for the most recent commands use M-x describe-function (for more info see [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Name-Help.html][Emacs Manual - Help Commands]])
 
@@ -250,6 +276,7 @@ To see the docs for the most recent commands use M-x describe-variable (for more
    | anki-editor-allow-duplicates                  | nil                    | If nil, pushing notes will fail if duplicate note is detected.                                                                                                                                    |
    | anki-editor-default-note-type                 | "Basic"                | Default note type when creating an anki-editor note in org.                                                                                                                                       |
    | anki-editor-latex-display-math-div            | nil                    | Whether to wrap latex fragments with an extra div when exporting. Either nil, for no extra wrapping, or a string value, which will be used for the class name of the wrapping div when exporting. |
+   | anki-editor-tylax-location                    | "t2l"                  | Path to the t2l executable for Typst math conversion. Set if the executable is not in the PATH.                                                                                                   |
 
 *** Functions and Macros
 

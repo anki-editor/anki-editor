@@ -552,5 +552,57 @@ Simple note body
     (should (and (string= "Text" (car second-field))
                  (string-match "This is {{c1::fast}}" (cdr second-field))))))
 
+(ert-deftest test--preprocess-typst-field-raw-skips-conversion ()
+  "Test that anki-editor--preprocess-typst-field skips conversion for # raw."
+  ;; This test doesn't require t2l - it just checks the # raw skip logic
+  (should (equal (anki-editor--preprocess-typst-field "# raw $f(x)=sqrt(1/2x)$" "Back")
+                 "# raw $f(x)=sqrt(1/2x)$"))
+  (should (equal (anki-editor--preprocess-typst-field "# raw\n$ Delta $" "Text")
+                 "# raw\n$ Delta $")))
+
+(ert-deftest test--preprocess-typst-field-converts-typst-to-latex ()
+  "Test typst to LaTeX conversion with mocked t2l executable."
+  ;; Test inline math: $f(x)=sqrt(1/2x)$
+  (cl-letf (((symbol-function 'call-process-region)
+             (lambda (start end program &optional delete display &rest args)
+               ;; Simulate t2l: delete region and insert output
+               (delete-region start end)
+               (insert "$f\\left(x\\right) =\\sqrt{\\frac{1}{2} x}$")
+               0)))
+    (should (equal (anki-editor--preprocess-typst-field "$f(x)=sqrt(1/2x)$" "Back")
+                   "$f\\left(x\\right) =\\sqrt{\\frac{1}{2} x}$")))
+
+  ;; Test display math: $ Delta $
+  (cl-letf (((symbol-function 'call-process-region)
+             (lambda (start end program &optional delete display &rest args)
+               ;; Simulate t2l: delete region and insert output
+               (delete-region start end)
+               (insert "\\[\n\\Delta\n\\]")
+               0)))
+    (should (equal (anki-editor--preprocess-typst-field "$ Delta $" "Text")
+                   "\\[\n\\Delta\n\\]"))))
+
+(ert-deftest test--preprocess-typst-field-escapes-special-chars ()
+  "Test that escaped dollar and hash signs are preserved as literals."
+  ;; Test that \$ becomes $ and \# becomes # in the output
+  ;; Mock just returns the input unchanged (simulating no math conversion needed)
+  (cl-letf (((symbol-function 'call-process-region)
+             (lambda (start end program &optional delete display &rest args)
+               ;; Simulate t2l: pass through unchanged - don't modify buffer
+               0)))
+    (should (equal (anki-editor--preprocess-typst-field "Price: \\$50 and count: \\#1" "Field")
+                   "Price: $50 and count: #1"))
+    ;; Test that both can appear together
+    (should (equal (anki-editor--preprocess-typst-field "\\$ and \\# together" "Field")
+                   "$ and # together")))
+  ;; Test with actual math - ensure math still works alongside escaped chars
+  (cl-letf (((symbol-function 'call-process-region)
+             (lambda (start end program &optional delete display &rest args)
+               (delete-region start end)
+               (insert "$x\\$ and \\# items$")
+               0)))
+    (should (equal (anki-editor--preprocess-typst-field "$x\\$ and \\# items$" "Field")
+                   "$x\\$ and \\# items$"))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
