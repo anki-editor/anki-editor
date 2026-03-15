@@ -995,8 +995,9 @@ Return :create, :update, or :skip as appropriate."
 
 (defun anki-editor-entry-format ()
   "Get format setting for entry at point."
-  (or (org-entry-get-with-inheritance anki-editor-prop-format)
-      anki-editor-export-note-fields-on-push))
+  (if-let* ((prop (org-entry-get-with-inheritance anki-editor-prop-format t)))
+      (not (string= prop "nil"))
+    anki-editor-export-note-fields-on-push))
 
 (defun anki-editor-toggle-format ()
   "Toggle format setting for entry at point.

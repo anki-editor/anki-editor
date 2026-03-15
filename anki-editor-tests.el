@@ -246,8 +246,8 @@ Simple note body
                                  nil nil nil))
            ("Raw fields" . #s(anki-editor-note
                               nil "Basic" "Default"
-                              (("Back" . "<p>\nWith property &lt;code&gt;:ANKI<sub>FORMAT</sub>: nil&lt;/code&gt;, content of the\nfield will be sent to Anki &lt;em&gt;unprocessed&lt;/em&gt;.  You can use\nwhatever Anki supports, like HTML tags.\n&lt;br&gt;\n&lt;br&gt;\nThis property is retrieved with inheritance, meaning that it can be\nset in any ancestor entries or at the top of the file with\n&lt;code&gt;#+PROPERTY: ANKI<sub>FORMAT</sub> nil&lt;/code&gt;, it's also possible to\noverride an outer level nil format with &lt;code&gt;:ANKI<sub>FORMAT</sub>: t&lt;/code&gt;.\n</p>\n")
-                               ("Front" . "<p>\nHow to send the content of a field or fields to Anki as is?\n</p>\n"))
+                              (("Back" . "   With property <code>:ANKI_FORMAT: nil</code>, content of the\n   field will be sent to Anki <em>unprocessed</em>.  You can use\n   whatever Anki supports, like HTML tags.\n   <br>\n   <br>\n   This property is retrieved with inheritance, meaning that it can be\n   set in any ancestor entries or at the top of the file with\n   <code>#+PROPERTY: ANKI_FORMAT nil</code>, it's also possible to\n   override an outer level nil format with <code>:ANKI_FORMAT: t</code>.\n")
+                               ("Front" . "   How to send the content of a field or fields to Anki as is?\n\n"))
                               nil nil nil))
            ("Raw and HTML-formatted fields in the same note" . #s(anki-editor-note
                                                                   nil "Basic" "Default"
