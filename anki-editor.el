@@ -1098,22 +1098,32 @@ The exporter itself does not process links to attachments. They are normally
 processed with `org-attach-expand-links' called as a hook before the exporter
 sees the buffer content. It is made work on an org-mode buffer, not on a string,
 hence the need to shadow the `org-attach-dir' function."
-  (let* ((attach-dir (org-attach-dir))
-         (expand-links (lambda (str)
-                         (cl-letf (((symbol-function 'org-attach-dir)
-                                    (lambda () attach-dir)))
-                           ;; Reusing single tmp buffer for all fields
-                           (erase-buffer)
-                           (insert str)
-                           (goto-char (point-min))
-                           (org-attach-expand-links nil)
-                           (buffer-string)))))
+  (let* ((src-file (buffer-file-name))
+         (src-dir (if src-file (file-name-directory src-file) default-directory))
+         (attach-dir
+          (let ((org-attach-use-inheritance t)
+                (dir (org-attach-dir)))
+            (and dir (expand-file-name dir src-dir)))))
     (if (not attach-dir)
         fields
       (with-temp-buffer
         (org-mode)
-        (cl-loop for (name . value) in fields
-                 collect (cons name (funcall expand-links value)))))))
+        (let ((default-directory src-dir)
+              (buffer-file-name src-file)
+              (org-attach-dir-relative nil))
+          (cl-letf (((symbol-function 'org-attach-dir)
+                     (lambda () attach-dir)))
+            (cl-loop for (name . value) in fields
+                     collect
+                     (cons name
+                           (if (and (stringp value) (string-match-p "attachment:" value))
+                               (progn
+                                 (erase-buffer)
+                                 (insert value)
+                                 (goto-char (point-min))
+                                 (org-attach-expand-links nil)
+                                 (buffer-string))
+                             value)))))))))
 
 (defun anki-editor--get-tags ()
   "Return list of tags of org entry at point."

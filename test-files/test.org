@@ -63,7 +63,7 @@ Simple note body
 :DIR: test-attachments
 :END:
 
-[[attachment:1x1.gif][Test image]]
+[[attachment:empty.gif][Test image]]
 
 * Note with file link
 :PROPERTIES:
@@ -75,7 +75,7 @@ Simple note body
 Note with file link
 
 ** Back
-[[file:test-attachments/1x1.gif][Test image]]
+[[file:test-attachments/empty.gif][Test image]]
 
 
 * Cloze with text

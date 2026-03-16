@@ -229,6 +229,22 @@ Simple note body
     (setf (anki-editor-note-marker expected-note) (point-marker))
     (should (equal note-at-point expected-note))))
 
+(anki-editor-deftest test--note-at-point-should-expand-attachment-link ()
+  :doc "Test attachment links are expanded from note-level `:DIR:`."
+  :in "test-files/test.org"
+  :test
+  (let* ((note (progn
+                 (anki-editor-test--go-to-headline "Note with attachment")
+                 (anki-editor-note-at-point)))
+         (fields (anki-editor-note-fields note))
+         (back (alist-get "Back" fields nil nil #'string=)))
+    (should (string-match "\\[\\[file:.*/test-files/test-attachments/empty\\.gif\\]\\[Test image\\]\\]" back))
+    (setf (anki-editor-note-fields note)
+          (anki-editor--export-fields fields))
+    (setq back (alist-get "Back" (anki-editor-note-fields note) nil nil #'string=))
+    (should (string-match "<a href=\"" back))
+    (should (string-match "empty-[0-9a-f]+\\.gif" back))))
+
 (anki-editor-deftest test--note-at-point-for-examples-should-produce-correct-output ()
   :doc "Test `anki-editor--note-at-point' should produce correct output for examples."
   :in "examples.org"
