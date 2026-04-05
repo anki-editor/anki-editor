@@ -20,17 +20,3 @@ jobs:
               apt-get install -y python3
       - name: Emacs test
         run: emacs -Q -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
-
-  test-emacs-29:
-    runs-on: ubuntu-latest
-    container:
-      image: silex/emacs:29.4
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install dependencies
-        run: >
-          apt-get -y update && \
-              apt-get install -y python3
-      - name: Emacs test
-        run: emacs -Q -batch -l ert -l anki-editor.el -l anki-editor-tests.el --eval "(let ((ert-batch-print-level 10) (ert-batch-print-length 120)) (ert-run-tests-batch-and-exit))"
