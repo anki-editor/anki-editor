@@ -1,0 +1,29 @@
+* Typst math formulas
+** inline and display formulas
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: typst math formulas
+:ANKI_MATH_TYPE: typst
+:end:
+
+*** Front
+Typst math formulas with escaped \$ and \# signs
+
+*** Back
+$f(x)=sqrt(1/2x)$
+$ Delta $
+
+** raw text
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: typst math formulas
+:ANKI_MATH_TYPE: typst
+:end:
+
+*** Front
+Typst math formulas with # raw text
+
+*** Back
+# raw
+$f(x)=sqrt(1/2x)$
+$ Delta $
