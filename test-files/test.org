@@ -65,6 +65,24 @@ Simple note body
 
 [[attachment:1x1.gif][Test image]]
 
+* Note with field attachments
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+** Front :ATTACH:
+:PROPERTIES:
+:DIR: field-front-attachments
+:END:
+[[attachment:front-image.gif][Front image]]
+
+** Back :ATTACH:
+:PROPERTIES:
+:DIR: field-back-attachments
+:END:
+[[attachment:back-image.gif][Back image]]
+
 * Note with file link
 :PROPERTIES:
 :ANKI_NOTE_TYPE: Basic

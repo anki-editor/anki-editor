@@ -246,6 +246,29 @@ Simple note body
                  (regexp-quote "<a href=\"1x1-")
                  back))))))
 
+(anki-editor-deftest test--note-at-point-should-expand-field-attachment-links ()
+  :doc "Test field subheading attachment links expand from field attachment dirs."
+  :in "test-files/test.org"
+  :test
+  (let* ((test-dir (file-name-directory buffer-file-name))
+         (front-file (expand-file-name "field-front-attachments/front-image.gif"
+                                       test-dir))
+         (back-file (expand-file-name "field-back-attachments/back-image.gif"
+                                      test-dir)))
+    (anki-editor-test--with-attachment-file (front-file)
+      (anki-editor-test--with-attachment-file (back-file)
+        (anki-editor-test--go-to-headline "Note with field attachments")
+        (let* ((note-at-point (anki-editor-note-at-point))
+               (fields (anki-editor-note-fields note-at-point))
+               (front (alist-get "Front" fields nil nil #'string=))
+               (back (alist-get "Back" fields nil nil #'string=)))
+          (should (string-match-p
+                   (regexp-quote (concat "file:" front-file))
+                   front))
+          (should (string-match-p
+                   (regexp-quote (concat "file:" back-file))
+                   back)))))))
+
 (anki-editor-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
   :doc "Test `anki-editor--note-at-point' should render property field."
   :in "test-files/property-fields.org"
