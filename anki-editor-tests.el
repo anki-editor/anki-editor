@@ -200,6 +200,48 @@ Simple note body
     (setf (anki-editor-note-marker expected-note) (point-marker))
     (should (equal expected-note note-at-point))))
 
+(anki-editor-deftest test--note-at-point-should-expand-note-attachment-links ()
+  :doc "Test `anki-editor-note-at-point' should expand note attachment links."
+  :in "test-files/test.org"
+  :test
+  (let* ((attachment-dir (expand-file-name "test-attachments"
+                                           (file-name-directory buffer-file-name)))
+         (attachment-file (expand-file-name "1x1.gif" attachment-dir)))
+    (anki-editor-test--go-to-headline "Note with attachment")
+    (let* ((note-at-point (anki-editor-note-at-point))
+           (fields (anki-editor-note-fields note-at-point))
+           (back (alist-get "Back" fields nil nil #'string=)))
+      (should (string-match-p
+               (regexp-quote (concat "file:" attachment-file))
+               back))
+      (setf (anki-editor-note-fields note-at-point)
+            (anki-editor--export-fields fields))
+      (setq back (alist-get "Back"
+                            (anki-editor-note-fields note-at-point)
+                            nil nil #'string=))
+      (should (string-match-p
+               (regexp-quote "<a href=\"1x1-")
+               back)))))
+
+(anki-editor-deftest test--note-at-point-should-expand-field-attachment-links ()
+  :doc "Test field subheading attachment links expand from field attachment dirs."
+  :in "test-files/test.org"
+  :test
+  (let* ((attachment-file (expand-file-name
+                           "test-attachments/1x1.gif"
+                           (file-name-directory buffer-file-name))))
+    (anki-editor-test--go-to-headline "Note with field attachments")
+    (let* ((note-at-point (anki-editor-note-at-point))
+           (fields (anki-editor-note-fields note-at-point))
+           (front (alist-get "Front" fields nil nil #'string=))
+           (back (alist-get "Back" fields nil nil #'string=)))
+      (should (string-match-p
+               (regexp-quote (concat "file:" attachment-file))
+               front))
+      (should (string-match-p
+               (regexp-quote (concat "file:" attachment-file))
+               back)))))
+
 (anki-editor-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
   :doc "Test `anki-editor--note-at-point' should render property field."
   :in "test-files/property-fields.org"
