@@ -1176,7 +1176,11 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
                                  ;; scope is `tree'
                                  (min (point-max) end)))
                            "")
-             collect (cons heading raw)
+             ;; Point is on the field heading here, so resolve attachments
+             ;; against the field's own attach dir before note-level expansion.
+             for field = (car (anki-editor--expand-attachment-links
+                               (list (cons heading raw))))
+             collect field
              ;; proceed to next field entry and check last-pt to
              ;; see if it's already the last entry
              do (org-forward-heading-same-level nil t)
