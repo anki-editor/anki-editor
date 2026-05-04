@@ -973,25 +973,6 @@ Return :create, :update, or :skip as appropriate."
   "Get all decks names from Anki."
   (anki-editor-api-call-result 'deckNames))
 
-(defun anki-editor--enable-tag-completion ()
-  (and anki-editor-mode anki-editor-org-tags-as-anki-tags))
-
-(defun anki-editor--before-set-tags (&optional _ just-align)
-  "Fetch and cache tags from Anki."
-  (when (and (anki-editor--enable-tag-completion)
-             (not just-align))
-    (setq anki-editor--anki-tags-cache (anki-editor-all-tags))
-    (when (cl-notevery #'anki-editor-is-valid-org-tag
-                       anki-editor--anki-tags-cache)
-      (warn (concat "Some tags from Anki contain characters that are not"
-                    "valid in Org tags.")))))
-
-(defun anki-editor--get-buffer-tags (oldfun)
-  "Append tags from Anki to the result of applying OLDFUN."
-  (append (funcall oldfun)
-          (when (anki-editor--enable-tag-completion)
-            (mapcar #'list anki-editor--anki-tags-cache))))
-
 (defun anki-editor-note-types ()
   "Get note types from Anki."
   (anki-editor-api-call-result 'modelNames))
@@ -1320,6 +1301,22 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
 
 (defvar-local anki-editor--anki-tags-cache nil)
 
+(defun anki-editor--before-set-tags (&optional _ just-align)
+  "Fetch and cache tags from Anki."
+  (when (and (anki-editor--enable-tag-completion)
+             (not just-align))
+    (setq anki-editor--anki-tags-cache (anki-editor-all-tags))
+    (when (cl-notevery #'anki-editor-is-valid-org-tag
+                       anki-editor--anki-tags-cache)
+      (warn (concat "Some tags from Anki contain characters that are not"
+                    "valid in Org tags.")))))
+
+(defun anki-editor--get-buffer-tags (oldfun)
+  "Append tags from Anki to the result of applying OLDFUN."
+  (append (funcall oldfun)
+          (when (anki-editor--enable-tag-completion)
+            (mapcar #'list anki-editor--anki-tags-cache))))
+
 (defun anki-editor--concat-multivalued-property-value (prop value)
   (let ((old-values (org-entry-get-multivalued-property nil prop)))
     (unless (string-suffix-p prop "+")
@@ -1367,6 +1364,8 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (remove-hook 'org-property-allowed-value-functions
                #'anki-editor--get-allowed-values-for-property t))
 
+(defun anki-editor--enable-tag-completion ()
+  (and anki-editor-mode anki-editor-org-tags-as-anki-tags))
 
 ;;; Commands
 
