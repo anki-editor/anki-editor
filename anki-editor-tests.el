@@ -119,6 +119,28 @@ You can restore the original values by calling
   "Return test org buffer with NAME."
   (find-file-noselect (expand-file-name name (file-name-directory (symbol-file 'anki-editor-test--go-to-headline)))))
 
+(cl-defmacro anki-editor-test--with-attachment-file ((file) &rest body)
+  "Create attachment FILE while running BODY.
+FILE should be an absolute file name.  Any directory created for FILE is
+removed afterwards when it did not already exist."
+  (declare (indent 1))
+  (let ((dir (make-symbol "dir"))
+        (created-dir (make-symbol "created-dir")))
+    `(let* ((,dir (file-name-directory ,file))
+            (,created-dir (not (file-directory-p ,dir))))
+       (unwind-protect
+           (progn
+             (make-directory ,dir t)
+             (with-temp-file ,file
+               ;; Minimal GIF header; contents only need to be a readable file.
+               (insert "GIF89a"))
+             ,@body)
+         (when (file-exists-p ,file)
+           (delete-file ,file))
+         (when (and ,created-dir
+                    (file-directory-p ,dir))
+           (delete-directory ,dir))))))
+
 (cl-defmacro anki-editor-deftest (name () &key doc in test)
   "Define NAME as an `anki-editor' specific `ert' test.
 This sets up the test server, runs the test, and then tears everything
@@ -199,6 +221,53 @@ Simple note body
           (anki-editor--export-fields (anki-editor-note-fields note-at-point)))
     (setf (anki-editor-note-marker expected-note) (point-marker))
     (should (equal expected-note note-at-point))))
+
+(anki-editor-deftest test--note-at-point-should-expand-note-attachment-links ()
+  :doc "Test `anki-editor-note-at-point' should expand note attachment links."
+  :in "test-files/test.org"
+  :test
+  (let* ((attachment-dir (expand-file-name "test-attachments"
+                                           (file-name-directory buffer-file-name)))
+         (attachment-file (expand-file-name "1x1.gif" attachment-dir)))
+    (anki-editor-test--with-attachment-file (attachment-file)
+      (anki-editor-test--go-to-headline "Note with attachment")
+      (let* ((note-at-point (anki-editor-note-at-point))
+             (fields (anki-editor-note-fields note-at-point))
+             (back (alist-get "Back" fields nil nil #'string=)))
+        (should (string-match-p
+                 (regexp-quote (concat "file:" attachment-file))
+                 back))
+        (setf (anki-editor-note-fields note-at-point)
+              (anki-editor--export-fields fields))
+        (setq back (alist-get "Back"
+                              (anki-editor-note-fields note-at-point)
+                              nil nil #'string=))
+        (should (string-match-p
+                 (regexp-quote "<a href=\"1x1-")
+                 back))))))
+
+(anki-editor-deftest test--note-at-point-should-expand-field-attachment-links ()
+  :doc "Test field subheading attachment links expand from field attachment dirs."
+  :in "test-files/test.org"
+  :test
+  (let* ((test-dir (file-name-directory buffer-file-name))
+         (front-file (expand-file-name "field-front-attachments/front-image.gif"
+                                       test-dir))
+         (back-file (expand-file-name "field-back-attachments/back-image.gif"
+                                      test-dir)))
+    (anki-editor-test--with-attachment-file (front-file)
+      (anki-editor-test--with-attachment-file (back-file)
+        (anki-editor-test--go-to-headline "Note with field attachments")
+        (let* ((note-at-point (anki-editor-note-at-point))
+               (fields (anki-editor-note-fields note-at-point))
+               (front (alist-get "Front" fields nil nil #'string=))
+               (back (alist-get "Back" fields nil nil #'string=)))
+          (should (string-match-p
+                   (regexp-quote (concat "file:" front-file))
+                   front))
+          (should (string-match-p
+                   (regexp-quote (concat "file:" back-file))
+                   back)))))))
 
 (anki-editor-deftest test--note-at-point-for-note-with-property-field-should-render-property-field ()
   :doc "Test `anki-editor--note-at-point' should render property field."
