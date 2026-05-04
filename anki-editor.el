@@ -634,16 +634,19 @@ The implementation is borrowed and simplified from ox-html."
 If the string starts with '# raw', return the string as is."
   (if (and (stringp src) (string-prefix-p "# raw" src))
       (replace-regexp-in-string "^# raw[ \t\n]*" "" src)
-    (or (org-export-string-as
-         src
-         anki-editor--ox-anki-html-backend
-         t
-         anki-editor--ox-export-ext-plist)
-        ;; 8.2.10 version of
-        ;; `org-export-filter-apply-functions'
-        ;; returns nil for an input of empty string,
-        ;; which will cause AnkiConnect to fail
-        "")))
+    (let ((ext-plist (org-combine-plists
+                      (org-export-get-environment anki-editor--ox-anki-html-backend t)
+                      anki-editor--ox-export-ext-plist)))
+      (or (org-export-string-as
+           src
+           anki-editor--ox-anki-html-backend
+           t
+           ext-plist)
+          ;; 8.2.10 version of
+          ;; `org-export-filter-apply-functions'
+          ;; returns nil for an input of empty string,
+          ;; which will cause AnkiConnect to fail
+          ""))))
 
 (defun anki-editor--export-fields (fields)
   "Export FIELDS, which should be a list of the form ((name . contents) ...).
