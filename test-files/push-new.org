@@ -1,0 +1,11 @@
+* Test note
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:END:
+
+** Front
+Front content
+
+** Back
+Back content

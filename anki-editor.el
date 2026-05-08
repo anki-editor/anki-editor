@@ -292,6 +292,7 @@ The api is borrowed from request.el."
 (defun anki-editor-api-call-result (&rest args)
   "Invoke AnkiConnect with ARGS and return the result from response.
 Raise an error if applicable."
+  (declare (indent defun))
   (let-alist (apply #'anki-editor-api-call args)
     (when .error (error .error))
     .result))
@@ -386,37 +387,6 @@ the passed callbacks."
                                       request response (if err on-error on-success))))))))
       (list :count count :successes successes :errors errors :results results))))
 
-(defmacro anki-editor-api-with-multi (&rest body)
-  "Use in combination with `anki-editor-api-enqueue' to combine
-multiple api calls into a single `multi' call, return the results
-of these calls in the same order."
-  `(let (--anki-editor-var-multi-actions--
-         --anki-editor-var-multi-results--)
-     ,@body
-     (setq --anki-editor-var-multi-results--
-           (anki-editor-api-call-result
-            'multi
-            :actions (nreverse
-                      ;; Here we make a vector from the action list,
-                      ;; or `json-encode' will consider it as an alist.
-                      (vconcat
-                       --anki-editor-var-multi-actions--))))
-     (cl-loop for result in --anki-editor-var-multi-results--
-              do (when-let* ((pred (listp result))
-                             (err (alist-get 'error result)))
-                   (error err))
-              collect result)))
-
-(defmacro anki-editor-api-enqueue (action &rest params)
-  "Like `anki-editor-api-call', but is only used in combination
-with `anki-editor-api-with-multi'.  Instead of sending the
-request directly, it simply queues the request."
-  `(let ((action (list :action ,action))
-         (params (list ,@params)))
-     (when params
-       (plist-put action :params params))
-     (push action --anki-editor-var-multi-actions--)))
-
 (defun anki-editor-api--note (note)
   "Convert NOTE to the form that AnkiConnect accepts."
   (list
@@ -444,11 +414,11 @@ The result is the path to the newly stored media file."
                                   (file-name-extension path t))))
     (when (eq :json-false
               (anki-editor-api-call-result 'retrieveMediaFile
-                                           :filename media-file-name))
+                :filename media-file-name))
       (message "Storing media file %s to Anki, this might take a while" path)
       (anki-editor-api-call-result 'storeMediaFile
-                                   :filename media-file-name
-                                   :data (base64-encode-string bytes)))
+        :filename media-file-name
+        :data (base64-encode-string bytes)))
     media-file-name))
 
 
@@ -705,23 +675,22 @@ as note types won't change in BODY."
   (declare (indent defun) (debug t))
   `(if anki-editor--collection-data-updated
        (progn ,@body)
-     (cl-destructuring-bind (models)
-         (anki-editor-api-with-multi
-          (anki-editor-api-enqueue 'modelNames))
+     (let* ((models (anki-editor-api-call-result 'modelNames))
+            (responses
+             (anki-editor-api-call-result 'multi
+               :actions (vconcat
+                         (cl-loop for mod in models
+                                  collect (list :action 'modelFieldNames
+                                                :version anki-editor-api-version
+                                                :params (list :modelName mod)))))))
        (unwind-protect
            (progn
              (setq anki-editor--collection-data-updated t
                    anki-editor--model-names models
                    anki-editor--model-fields
-                   (cl-loop
-                    for flds in (eval `(anki-editor-api-with-multi
-                                        ,@(cl-loop
-                                           for mod in models
-                                           collect `(anki-editor-api-enqueue
-                                                     'modelFieldNames
-                                                     :modelName ,mod))))
-                    for mod in models
-                    collect (cons mod flds)))
+                   (cl-loop for resp in responses
+                            for mod  in models
+                            collect (cons mod (alist-get 'result resp))))
              ,@body)
          (setq anki-editor--collection-data-updated nil)))))
 
@@ -827,48 +796,40 @@ Return :create, :update, or :skip as appropriate."
    :error (anki-editor--make-set-note-failure-reason note)))
 
 (defun anki-editor--enqueue-update-note (note)
-  "Enqueue an update-note action for NOTE."
-  (anki-editor-api-enqueue-request
-   'updateNote
-   (list :note (anki-editor-api--note note))
-   :success (lambda (_)
-              (set-buffer (marker-buffer (anki-editor-note-marker note)))
-              (goto-char (anki-editor-note-marker note))
-              (anki-editor--set-note-hash (anki-editor-note-hash note))
-              ;; maybe this whole function should be a multi call.
-              ;; can you have a multi in a multi? will anki process it?
-              (anki-editor--enqueue-change-deck note)
-              :updated-note)
-   :error (anki-editor--make-set-note-failure-reason note)))
-
-(defun anki-editor--enqueue-change-deck (note)
-  "Enqueue a change-deck action for NOTE."
-  (anki-editor-api-enqueue-request
-   'notesInfo
-   (list :notes (list (string-to-number (anki-editor-note-id note))))
-   :success (lambda (result)
-              (anki-editor-api-enqueue-request
-               'changeDeck
-               (list :deck (anki-editor-note-deck note)
-                     ;; since notesInfo operates on a list of notes
-                     ;; it returns a list of noteInfos. We only care about
-                     ;; the one note though, so just grab the car of the result.
-                     :cards (alist-get 'cards (car result)))
-               :success (lambda (_)
-                          (set-buffer (marker-buffer (anki-editor-note-marker note)))
-                          (goto-char (anki-editor-note-marker note))
-                          (anki-editor--set-note-hash (anki-editor-note-hash note))
-                          :updated-deck)
-               :error (anki-editor--make-set-note-failure-reason note)))
-   :error (anki-editor--make-set-note-failure-reason note)))
-
-(defun anki-editor--push-note (note)
-  "Request AnkiConnect for updating or creating NOTE."
-  (cond
-   ((null (anki-editor-note-id note))
-    (anki-editor--create-note note))
-   (t
-    (anki-editor--update-note note))))
+  "Enqueue an update of NOTE."
+  (let ((on-error (anki-editor--make-set-note-failure-reason note)))
+    (anki-editor-api-enqueue-request
+     'notesInfo
+     (list :notes (list (string-to-number (anki-editor-note-id note))))
+     :error on-error
+     :success ; update tags
+     (lambda (old)
+       (let* ((old (car old))
+              (cards (alist-get 'cards old))
+              (upd-note
+               (plist-put (anki-editor-api--note note)
+                          :tags (vconcat (cl-union
+                                          (anki-editor-note-tags note)
+                                          (cl-intersection (alist-get 'tags old)
+                                                           anki-editor-protected-tags
+                                                           :test #'string=)
+                                          :test #'string=)))))
+         (anki-editor-api-enqueue-request
+          'updateNote
+          (list :note upd-note)
+          :error on-error
+          :success ; change deck
+          (lambda (_)
+            (anki-editor-api-enqueue-request
+             'changeDeck
+             (list :deck (anki-editor-note-deck note) :cards cards)
+             :error on-error
+             :success ; finalise update
+             (lambda (_)
+               (set-buffer (marker-buffer (anki-editor-note-marker note)))
+               (goto-char (anki-editor-note-marker note))
+               (anki-editor--set-note-hash (anki-editor-note-hash note))
+               :updated-note)))))))))
 
 (defun anki-editor--calc-note-hash (note)
   "Calculate an md5 hash of the contents of NOTE."
@@ -891,54 +852,6 @@ Return :create, :update, or :skip as appropriate."
 (defun anki-editor--set-note-hash (hash)
   "Set note-hash of anki-editor note at point to HASH."
   (org-set-property anki-editor-prop-note-hash hash))
-
-(defun anki-editor--create-note (note)
-  "Request AnkiConnect for creating NOTE."
-  (thread-last
-    (anki-editor-api-with-multi
-     (anki-editor-api-enqueue 'createDeck
-                              :deck (anki-editor-note-deck note))
-     (anki-editor-api-enqueue 'addNote
-                              :note (anki-editor-api--note note)))
-    (nth 1)
-    (number-to-string)
-    (setf (anki-editor-note-id note))
-    (string-to-number)
-    (anki-editor--set-note-id)))
-
-(defun anki-editor--update-note (note)
-  "Request AnkiConnect for updating fields, deck, and tags of NOTE."
-  (let* ((oldnote (caar (anki-editor-api-with-multi
-                         (anki-editor-api-enqueue
-                          'notesInfo
-                          :notes (list (string-to-number
-                                        (anki-editor-note-id note))))
-                         (anki-editor-api-enqueue
-                          'updateNoteFields
-                          :note (anki-editor-api--note note)))))
-         (tagsadd (cl-set-difference (anki-editor-note-tags note)
-                                     (alist-get 'tags oldnote)
-                                     :test 'string=))
-         (tagsdel (thread-first (alist-get 'tags oldnote)
-                                (cl-set-difference (anki-editor-note-tags note)
-                                                   :test 'string=)
-                                (cl-set-difference anki-editor-protected-tags
-                                                   :test 'string=))))
-    (anki-editor-api-with-multi
-     (anki-editor-api-enqueue 'changeDeck
-                              :cards (alist-get 'cards oldnote)
-                              :deck (anki-editor-note-deck note))
-
-     (when tagsadd
-       (anki-editor-api-enqueue 'addTags
-                                :notes (list (string-to-number
-                                              (anki-editor-note-id note)))
-                                :tags (mapconcat #'identity tagsadd " ")))
-     (when tagsdel
-       (anki-editor-api-enqueue 'removeTags
-                                :notes (list (string-to-number
-                                              (anki-editor-note-id note)))
-                                :tags (mapconcat #'identity tagsdel " "))))))
 
 (defun anki-editor--set-failure-reason (reason)
   "Set failure reason to REASON in property drawer at point."
@@ -1462,21 +1375,14 @@ non-nil, which see."
               (when (> (+ queued-created queued-updated) 0)
                 (message "Sending %d notes to Anki... "
                          (+ queued-created queued-updated)))
-              (let ((results nil))
-                ;; some requests can initiate follow-up requests
-                ;; so we keep processing until all queues are empty.
-                (while (anki-editor-api--get-active-queue)
-                  (push (anki-editor-api-dispatch-queue) results))
-                (cl-loop for result in results
-                         for responses = (plist-get result :results)
-                         for errors = (plist-get result :errors)
-                         do
-                         (setq failed (+ failed errors))
-                         (cl-loop for response in responses
-                                  do
-                                  (cl-case response
-                                    (:created-note (cl-incf cards-created))
-                                    (:updated-note (cl-incf cards-updated))))))))
+              (cl-loop for result in (cl-loop while (anki-editor-api--get-active-queue)
+                                              collect (anki-editor-api-dispatch-queue))
+                       do
+                       (cl-incf failed (plist-get result :errors))
+                       (cl-loop for response in (plist-get result :results)
+                                do (cl-case response
+                                     (:created-note (cl-incf cards-created))
+                                     (:updated-note (cl-incf cards-updated)))))))
           (message
            (cond
             ((zerop (length anki-editor--note-markers))
@@ -1522,19 +1428,23 @@ beginning of the current heading."
 (defun anki-editor-push-note-at-point ()
   "Push note at point to Anki.
 
-If point is not at a heading with an `ANKI_NOTE_TYPE' property,
-go up one heading at a time, until heading level 1, and push the
-subtree associated with the first heading that has one.
+If point is not at a heading with an `ANKI_NOTE_TYPE' property, go up
+one heading at a time, until heading level 1, and push the subtree
+associated with the first heading that has one.
 
 Unlike `anki-editor-push-notes', always pushes unconditionally."
   (interactive)
   (save-excursion
     (anki-editor--goto-nearest-note-type)
-    (let ((note-at-point (anki-editor-note-at-point)))
-      (anki-editor--push-note note-at-point)
-      (anki-editor--set-note-hash
-       (anki-editor--calc-note-hash note-at-point)))
-    (message "Successfully pushed note at point to Anki.")))
+    (let* ((anki-editor-force-update t)
+           (results (anki-editor--with-collection-data-updated
+                      (anki-editor--process-note (anki-editor-note-at-point))
+                      (cl-loop while (anki-editor-api--get-active-queue)
+                               collect (anki-editor-api-dispatch-queue)))))
+      (if (cl-some (lambda (r) (> (plist-get r :errors) 0)) results)
+          (user-error "Push failed; see %s property" anki-editor-prop-failure-reason)
+        (save-buffer)
+        (message "Successfully pushed note at point to Anki.")))))
 
 (defun anki-editor-push-new-notes (&optional scope)
   "Push note entries without ANKI_NOTE_ID in SCOPE to Anki.
@@ -1579,8 +1489,7 @@ With PREFIX also delete it from Org."
                (format (concat "Do you really want to delete note %s "
                                "from Anki?")
                        note-id))
-          (anki-editor-api-call-result 'deleteNotes
-                                       :notes (list note-id))
+          (anki-editor-api-call-result 'deleteNotes :notes (list note-id))
           (org-entry-delete nil anki-editor-prop-note-id)
           (message "Deleted note %s from Anki" note-id)))
       (when prefix
@@ -1614,8 +1523,7 @@ When NOTE-TYPE is nil, prompt for one."
                    (completing-read "Note type: " (sort
                                                    (anki-editor-note-types)
                                                    #'string-lessp))))
-         (fields (anki-editor-api-call-result 'modelFieldNames
-                                              :modelName type))
+         (fields (anki-editor-api-call-result 'modelFieldNames :modelName type))
          (heading (read-from-minibuffer "Note heading (optional): ")))
     (anki-editor--insert-note-skeleton prefix deck heading type fields)))
 
@@ -1783,16 +1691,13 @@ note or deck."
   "Open Anki Add Cards dialog with presets from current note entry."
   (interactive)
   (anki-editor-api-call-result 'guiAddCards
-                               :note (append
-                                      (anki-editor-api--note
-                                       (anki-editor-note-at-point))
-                                      (list :options '(:closeAfterAdding t)))))
+    :note (append (anki-editor-api--note (anki-editor-note-at-point))
+                  (list :options '(:closeAfterAdding t)))))
 
 (defun anki-editor-find-notes (&optional query)
   "Find notes with QUERY."
   (interactive "sQuery: ")
-  (let ((nids (anki-editor-api-call-result 'findNotes
-                                           :query (or query ""))))
+  (let ((nids (anki-editor-api-call-result 'findNotes :query (or query ""))))
     (if (called-interactively-p 'interactive)
         (message "%S" nids)
       nids)))
@@ -1813,8 +1718,8 @@ note or deck."
     (cl-loop for model in (anki-editor-note-types)
              for style = (let* ((css (alist-get
                                       'css
-                                      (anki-editor-api-call-result
-                                       'modelStyling :modelName model)))
+                                      (anki-editor-api-call-result 'modelStyling
+                                        :modelName model)))
                                 (start (string-match
                                         (regexp-quote anki-editor--style-start)
                                         css))
@@ -1834,10 +1739,9 @@ note or deck."
                              css))
              do
              (message "Updating styles for \"%s\"..." model)
-             (anki-editor-api-call-result
-              'updateModelStyling
-              :model (list :name model
-                           :css (concat (concat head "\n\n") style)))
+             (anki-editor-api-call-result 'updateModelStyling
+               :model (list :name model
+                            :css (concat (concat head "\n\n") style)))
              finally do (message "Updating styles...Done"))))
 
 (defun anki-editor-remove-styles ()
@@ -1845,7 +1749,7 @@ note or deck."
   (interactive)
   (cl-loop for model in (anki-editor-note-types)
            for css = (alist-get 'css (anki-editor-api-call-result
-                                      'modelStyling :modelName model))
+                                       'modelStyling :modelName model))
            for start = (string-match
                         (regexp-quote anki-editor--style-start)
                         css)
@@ -1859,12 +1763,11 @@ note or deck."
            (when-let* ((newend (string-match "[[:graph:]]" css end)))
              (setq end newend))
            (message "Resetting styles for \"%s\"..." model)
-           (anki-editor-api-call-result
-            'updateModelStyling
-            :model (list :name model
-                         :css (concat
-                               (substring css 0 start)
-                               (substring css end))))
+           (anki-editor-api-call-result 'updateModelStyling
+             :model (list :name model
+                          :css (concat
+                                (substring css 0 start)
+                                (substring css end))))
            finally do (message "Resetting styles...Done")))
 
 
