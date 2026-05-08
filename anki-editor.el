@@ -292,6 +292,7 @@ The api is borrowed from request.el."
 (defun anki-editor-api-call-result (&rest args)
   "Invoke AnkiConnect with ARGS and return the result from response.
 Raise an error if applicable."
+  (declare (indent defun))
   (let-alist (apply #'anki-editor-api-call args)
     (when .error (error .error))
     .result))
@@ -413,11 +414,11 @@ The result is the path to the newly stored media file."
                                   (file-name-extension path t))))
     (when (eq :json-false
               (anki-editor-api-call-result 'retrieveMediaFile
-                                           :filename media-file-name))
+                :filename media-file-name))
       (message "Storing media file %s to Anki, this might take a while" path)
       (anki-editor-api-call-result 'storeMediaFile
-                                   :filename media-file-name
-                                   :data (base64-encode-string bytes)))
+        :filename media-file-name
+        :data (base64-encode-string bytes)))
     media-file-name))
 
 
@@ -1484,8 +1485,7 @@ With PREFIX also delete it from Org."
                (format (concat "Do you really want to delete note %s "
                                "from Anki?")
                        note-id))
-          (anki-editor-api-call-result 'deleteNotes
-                                       :notes (list note-id))
+          (anki-editor-api-call-result 'deleteNotes :notes (list note-id))
           (org-entry-delete nil anki-editor-prop-note-id)
           (message "Deleted note %s from Anki" note-id)))
       (when prefix
@@ -1519,8 +1519,7 @@ When NOTE-TYPE is nil, prompt for one."
                    (completing-read "Note type: " (sort
                                                    (anki-editor-note-types)
                                                    #'string-lessp))))
-         (fields (anki-editor-api-call-result 'modelFieldNames
-                                              :modelName type))
+         (fields (anki-editor-api-call-result 'modelFieldNames :modelName type))
          (heading (read-from-minibuffer "Note heading (optional): ")))
     (anki-editor--insert-note-skeleton prefix deck heading type fields)))
 
@@ -1688,16 +1687,13 @@ note or deck."
   "Open Anki Add Cards dialog with presets from current note entry."
   (interactive)
   (anki-editor-api-call-result 'guiAddCards
-                               :note (append
-                                      (anki-editor-api--note
-                                       (anki-editor-note-at-point))
-                                      (list :options '(:closeAfterAdding t)))))
+    :note (append (anki-editor-api--note (anki-editor-note-at-point))
+                  (list :options '(:closeAfterAdding t)))))
 
 (defun anki-editor-find-notes (&optional query)
   "Find notes with QUERY."
   (interactive "sQuery: ")
-  (let ((nids (anki-editor-api-call-result 'findNotes
-                                           :query (or query ""))))
+  (let ((nids (anki-editor-api-call-result 'findNotes :query (or query ""))))
     (if (called-interactively-p 'interactive)
         (message "%S" nids)
       nids)))
@@ -1718,8 +1714,8 @@ note or deck."
     (cl-loop for model in (anki-editor-note-types)
              for style = (let* ((css (alist-get
                                       'css
-                                      (anki-editor-api-call-result
-                                       'modelStyling :modelName model)))
+                                      (anki-editor-api-call-result 'modelStyling
+                                        :modelName model)))
                                 (start (string-match
                                         (regexp-quote anki-editor--style-start)
                                         css))
@@ -1739,10 +1735,9 @@ note or deck."
                              css))
              do
              (message "Updating styles for \"%s\"..." model)
-             (anki-editor-api-call-result
-              'updateModelStyling
-              :model (list :name model
-                           :css (concat (concat head "\n\n") style)))
+             (anki-editor-api-call-result 'updateModelStyling
+               :model (list :name model
+                            :css (concat (concat head "\n\n") style)))
              finally do (message "Updating styles...Done"))))
 
 (defun anki-editor-remove-styles ()
@@ -1750,7 +1745,7 @@ note or deck."
   (interactive)
   (cl-loop for model in (anki-editor-note-types)
            for css = (alist-get 'css (anki-editor-api-call-result
-                                      'modelStyling :modelName model))
+                                       'modelStyling :modelName model))
            for start = (string-match
                         (regexp-quote anki-editor--style-start)
                         css)
@@ -1764,12 +1759,11 @@ note or deck."
            (when-let* ((newend (string-match "[[:graph:]]" css end)))
              (setq end newend))
            (message "Resetting styles for \"%s\"..." model)
-           (anki-editor-api-call-result
-            'updateModelStyling
-            :model (list :name model
-                         :css (concat
-                               (substring css 0 start)
-                               (substring css end))))
+           (anki-editor-api-call-result 'updateModelStyling
+             :model (list :name model
+                          :css (concat
+                                (substring css 0 start)
+                                (substring css end))))
            finally do (message "Resetting styles...Done")))
 
 
