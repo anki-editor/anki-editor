@@ -552,5 +552,117 @@ Simple note body
     (should (and (string= "Text" (car second-field))
                  (string-match "This is {{c1::fast}}" (cdr second-field))))))
 
+;;;; Push tests
+
+(defun anki-editor-test--reset-mock ()
+  "Clear the mock's recorded requests and notesInfo tag overrides."
+  (anki-editor-api-call-result '__test_reset__))
+
+(defun anki-editor-test--recorded-requests ()
+  "Return the list of AnkiConnect requests the mock has recorded."
+  (anki-editor-api-call-result '__test_get_requests__))
+
+(defun anki-editor-test--set-notes-info-tags (note-id tags)
+  "Make the mock's `notesInfo' return TAGS (a list of strings) for NOTE-ID."
+  (anki-editor-api-call-result '__test_set_notes_info_tags__
+    :noteId note-id
+    :tags (vconcat tags)))
+
+(defun anki-editor-test--find-sub-action (action requests)
+  "Find the first `multi' sub-action whose action name is ACTION.
+ACTION is a symbol; REQUESTS is a list of recorded request alists.
+Returns the matching sub-action alist or nil."
+  (cl-loop for req in requests
+           when (string= "multi" (alist-get 'action req))
+           thereis (cl-find-if
+                    (lambda (sub)
+                      (string= (alist-get 'action sub) (symbol-name action)))
+                    (alist-get 'actions (alist-get 'params req)))))
+
+(cl-defmacro anki-editor-deftest-push (name () &key doc in test)
+  "Define an ERT test that loads IN into a temp org-mode buffer and runs TEST.
+Like `anki-editor-deftest' but reads IN's contents into a temp buffer
+rather than visiting it, so mutations made by the test (ANKI_NOTE_ID,
+ANKI_NOTE_HASH, FAILURE_REASON) don't dirty the on-disk fixture."
+  (declare (doc-string 3) (indent 2))
+  `(ert-deftest ,name ()
+     ,doc
+     (save-window-excursion
+       (with-temp-buffer
+         (insert-file-contents
+          (expand-file-name
+           ,in (file-name-directory
+                (symbol-file 'anki-editor-test--setup))))
+         (org-mode)
+         (goto-char (point-min))
+         (anki-editor-test--setup)
+         (cl-letf (((symbol-function 'save-buffer) #'ignore))
+           (unwind-protect ,test
+             (anki-editor-test--teardown)))))))
+
+(anki-editor-deftest-push test--push-new-note-enqueues-add-note ()
+  :doc "Pushing a note without an ANKI_NOTE_ID enqueues createDeck and addNote with the right deck and model."
+  :in "test-files/push-new.org"
+  :test
+  (progn
+    (anki-editor-test--reset-mock)
+    (anki-editor-push-note-at-point)
+    (let* ((requests (anki-editor-test--recorded-requests))
+           (add-note (anki-editor-test--find-sub-action 'addNote requests))
+           (create-deck (anki-editor-test--find-sub-action 'createDeck requests)))
+      (should create-deck)
+      (should add-note)
+      (let-alist (alist-get 'note (alist-get 'params add-note))
+        (should (string= "Tests" .deckName))
+        (should (string= "Basic" .modelName))))))
+
+(anki-editor-deftest-push test--push-existing-note-merges-protected-tags ()
+  :doc "Protected Anki-side tags survive a push even when absent from Org."
+  :in "test-files/push-existing.org"
+  :test
+  (let ((anki-editor-protected-tags '("marked")))
+    (anki-editor-test--reset-mock)
+    (anki-editor-test--set-notes-info-tags 1700000000001 '("marked" "foo"))
+    (anki-editor-push-note-at-point)
+    (let* ((requests (anki-editor-test--recorded-requests))
+           (update-note (anki-editor-test--find-sub-action 'updateNote requests)))
+      (should update-note)
+      (should (anki-editor-test--find-sub-action 'changeDeck requests))
+      (let-alist (alist-get 'note (alist-get 'params update-note))
+        (should (member "marked" .tags))
+        (should-not (member "foo" .tags))))))
+
+(anki-editor-deftest-push test--push-existing-note-without-protected-tags ()
+  :doc "Anki-side tags that aren't in `anki-editor-protected-tags' are dropped on push.
+Org tags are preserved through the same path."
+  :in "test-files/push-existing-tagged.org"
+  :test
+  (let ((anki-editor-protected-tags '("marked")))
+    (anki-editor-test--reset-mock)
+    (anki-editor-test--set-notes-info-tags 1700000000001 '("foo" "bar"))
+    (anki-editor-push-note-at-point)
+    (let* ((requests (anki-editor-test--recorded-requests))
+           (update-note (anki-editor-test--find-sub-action 'updateNote requests)))
+      (should update-note)
+      (let-alist (alist-get 'note (alist-get 'params update-note))
+        (should (member "urgent" .tags))
+        (should-not (member "foo" .tags))
+        (should-not (member "bar" .tags))))))
+
+(anki-editor-deftest-push test--repush-skips-on-hash-match ()
+  :doc "Re-pushing an unchanged note does not enqueue addNote or updateNote."
+  :in "test-files/push-new.org"
+  :test
+  (let ((anki-editor-force-update nil))
+    (anki-editor-test--reset-mock)
+    (anki-editor-push-notes)
+    (should (anki-editor-test--find-sub-action
+             'addNote (anki-editor-test--recorded-requests)))
+    (anki-editor-test--reset-mock)
+    (anki-editor-push-notes)
+    (let ((after-second (anki-editor-test--recorded-requests)))
+      (should-not (anki-editor-test--find-sub-action 'addNote after-second))
+      (should-not (anki-editor-test--find-sub-action 'updateNote after-second)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; anki-editor-tests.el ends here
