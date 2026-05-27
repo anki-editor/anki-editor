@@ -1,3 +1,4 @@
 *-autoloads.el
 *-pkg.el
 *.elc
+.opencode/
