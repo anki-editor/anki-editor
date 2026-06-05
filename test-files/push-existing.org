@@ -1,0 +1,12 @@
+* Test note
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Tests
+:ANKI_NOTE_ID: 1700000000001
+:END:
+
+** Front
+Front content
+
+** Back
+Back content

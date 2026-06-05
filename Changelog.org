@@ -28,6 +28,12 @@
        1. ~anki-editor-api-upgrade~ removed
    12. Added variable ~anki-editor-note-match~ to make matching note
        entries customizable
+   13. Replaced macros ~anki-editor-api-with-multi~ and
+       ~anki-editor-api-enqueue~. Now ~anki-editor-api-enqueue-request~
+       queues an action with success/error callbacks, and
+       ~anki-editor-api-dispatch-queue~ sends the queued requests as a
+       single ~multi~ call and dispatches the callbacks against the
+       responses
 
 ** v0.3.3
 

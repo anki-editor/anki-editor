@@ -266,33 +266,32 @@ To see the docs for the most recent commands use M-x describe-variable (for more
 
     Calls above, returns result field or raise an error.
 
-**** anki-editor-api-with-multi
+**** anki-editor-api-enqueue-request
 
-    Used in combination with ~anki-editor-api-enqueue~ to queue
-    multiple api calls and combine them into one 'multi' call at the
-    end, return the results of these calls in the same order.
+    Queue ACTION with PARAMS for later dispatch.  SUCCESS and ERROR
+    callbacks are invoked by ~anki-editor-api-dispatch-queue~ when the
+    response arrives.
+
+**** anki-editor-api-dispatch-queue
+
+    Dispatch all enqueued requests as a single AnkiConnect ~multi~
+    call, then run each request's success/error callback against the
+    corresponding response.  Returns a property list with ~:count~,
+    ~:successes~, ~:errors~, and ~:results~.
 
     Usage:
     #+begin_src elisp
-      (cl-destructuring-bind (decks models tags notes)
-          (anki-editor-api-with-multi
-           ;; The following api calls will be combined into one 'multi' call.
-           (anki-editor-api-enqueue 'deckNames)
-           (anki-editor-api-enqueue 'modelNames)
-           (anki-editor-api-enqueue 'getTags)
-           (anki-editor-api-enqueue 'findNotes :query "deck:Default"))
-        (message (concat "decks: %S\n"
-                         "models: %S\n"
-                         "tags: %S\n"
-                         "notes: %S")
-                 decks models tags notes))
+      (let ((collected (make-hash-table)))
+        (dolist (action '(deckNames modelNames getTags))
+          (anki-editor-api-enqueue-request
+           action nil
+           :success (lambda (res) (puthash action res collected))))
+        (anki-editor-api-enqueue-request
+         'findNotes (list :query "deck:Default")
+         :success (lambda (res) (puthash 'findNotes res collected)))
+        (anki-editor-api-dispatch-queue)
+        collected)
     #+end_src
-
-**** anki-editor-api-enqueue
-
-    Like ~anki-editor-api-call~, but is only used in combination with
-    ~anki-editor-api-with-multi~.  Instead of sending the request
-    directly, it simply queues the request.
 
 **** anki-editor-note-at-point
 

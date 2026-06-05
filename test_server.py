@@ -1,3 +1,4 @@
+import itertools
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -10,6 +11,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     Mimics AnkiConnect server for testing purposes.
     """
 
+    _next_note_id = itertools.count(999)
+    _next_deck_id = itertools.count(9999)
+    _next_card_id = itertools.count(99999)
+
+    _recorded_requests = []
+    _notes_info_tags = {}  # noteId (int) -> [tag str]
+
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
@@ -19,6 +27,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         parsed_json = json.loads(post_data.decode('utf-8'))
+        if not parsed_json.get('action', '').startswith('__test_'):
+            self._recorded_requests.append(parsed_json)
         response_data = self.handle_action(parsed_json['action'], parsed_json.get('params'))
         response_message = json.dumps(response_data)
 
@@ -26,10 +36,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def handle_action(self, action, params=None):
         if action == 'modelNames':
-            return ['Basic', 'Cloze', 'Basic (and reversed card)']
+            return {'result': ['Basic', 'Cloze', 'Basic (and reversed card)'], 'error': None}
         elif action == 'modelFieldNames':
             model_name = params['modelName']
-            return self.action_model_field_names_response(model_name)
+            return {'result': self.action_model_field_names_response(model_name), 'error': None}
         elif action == 'storeMediaFile':
             file_name = params['filename']
             return {"result": file_name, "error": None}
@@ -41,6 +51,39 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             actions = params['actions']
             result = [self.handle_action(item['action'], item.get('params')) for item in actions]
             return {'result': result, 'error': None}
+        elif action == 'addNote':
+            return {'result': next(self._next_note_id), 'error': None}
+        elif action == 'createDeck':
+            return {'result': next(self._next_deck_id), 'error': None}
+        elif action == 'notesInfo':
+            note_ids = params['notes']
+            return {
+                'result': [
+                    {
+                        'noteId': note_id,
+                        'modelName': 'Basic',
+                        'fieldOrder': 0,
+                        'fields': {},
+                        'tags': list(self._notes_info_tags.get(note_id, [])),
+                        'cards': [next(self._next_card_id)],
+                    }
+                    for note_id in note_ids
+                ],
+                'error': None,
+            }
+        elif action == 'updateNote':
+            return {'result': None, 'error': None}
+        elif action == 'changeDeck':
+            return {'result': None, 'error': None}
+        elif action == '__test_reset__':
+            type(self)._recorded_requests.clear()
+            type(self)._notes_info_tags.clear()
+            return {'result': None, 'error': None}
+        elif action == '__test_get_requests__':
+            return {'result': list(self._recorded_requests), 'error': None}
+        elif action == '__test_set_notes_info_tags__':
+            type(self)._notes_info_tags[params['noteId']] = list(params['tags'])
+            return {'result': None, 'error': None}
         else:
             raise ValueError(f"Unknown action: {action}")
 
