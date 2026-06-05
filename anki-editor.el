@@ -1298,8 +1298,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (cl-loop for f in field-names
            for value = (alist-get f field-alist nil nil #'string=)
            when (stringp value)
-           concat (concat (make-string (+ 1 level) ?*) " " f "\n\n"
-                          (string-trim value) "\n\n")))
+           concat (concat (make-string (+ 1 level) ?*) " " f "\n\n" value "\n\n")))
 
 ;;; Minor mode
 
