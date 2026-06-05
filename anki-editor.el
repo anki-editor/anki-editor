@@ -1,7 +1,7 @@
 ;;; anki-editor.el --- Minor mode for making Anki cards with Org  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018-2022 Lei Tan <louietanlei[at]gmail[dot]com>
-;;               2022–2025 anki-editor contributors
+;;               2022–2026 anki-editor contributors
 
 ;; Author: Lei Tan
 ;; Version: 0.3.4
