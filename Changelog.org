@@ -34,6 +34,7 @@
        ~anki-editor-api-dispatch-queue~ sends the queued requests as a
        single ~multi~ call and dispatches the callbacks against the
        responses
+   14. Media links are now handled directly by the export backend.
 
 ** v0.3.3
 

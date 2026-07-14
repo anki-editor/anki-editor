@@ -429,7 +429,8 @@ The result is the path to the newly stored media file."
    :parent 'html
    :name 'anki-html
    :transcoders '((latex-fragment . anki-editor--ox-latex)
-                  (latex-environment . anki-editor--ox-latex))))
+                  (latex-environment . anki-editor--ox-latex)
+                  (link . anki-editor--ox-html-link-transcoder))))
 
 (defconst anki-editor--ox-export-ext-plist
   '(:with-toc nil :with-properties nil :with-planning nil :anki-editor-mode t))
@@ -528,6 +529,12 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
     (if anki-editor-break-consecutive-braces-in-latex
         (replace-regexp-in-string "}}" "} } " code)
       code)))
+
+(defun anki-editor--ox-html-link-transcoder (link desc info)
+  "Transcode LINK with description DESC for the Anki HTML backend.
+INFO is the export state.  Delegate non-file links to Org's HTML
+backend."
+  (anki-editor--ox-html-link #'org-html-link link desc info))
 
 (defun anki-editor--ox-html-link (oldfun link desc info)
   "Export LINK and its target.
@@ -1272,8 +1279,7 @@ Return a list of cons of (FIELD-NAME . FIELD-CONTENT)."
   (add-hook 'org-property-allowed-value-functions
             #'anki-editor--get-allowed-values-for-property nil t)
   (advice-add 'org-set-tags :before #'anki-editor--before-set-tags)
-  (advice-add 'org-get-buffer-tags :around #'anki-editor--get-buffer-tags)
-  (advice-add 'org-html-link :around #'anki-editor--ox-html-link))
+  (advice-add 'org-get-buffer-tags :around #'anki-editor--get-buffer-tags))
 
 (defun anki-editor-teardown-minor-mode ()
   "Tear down this minor mode."
